@@ -1,0 +1,31 @@
+# --- secrets ---
+.env
+.env.*
+!.env.example
+
+# --- deps ---
+node_modules/
+.pnpm-store/
+
+# --- build / cache ---
+dist/
+build/
+.cache/
+.turbo/
+*.tsbuildinfo
+
+# --- logs ---
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+*.log
+
+# --- editor / OS ---
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# --- runtime ---
+coverage/
+.nyc_output/

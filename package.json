@@ -1,0 +1,38 @@
+{
+  "name": "ai-in-2026",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Hands-on lab: OpenAI Responses API (2026) + TypeScript + Express for absolute beginners",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "l1": "tsx 01-hello-openai/hello.ts",
+    "l2": "tsx 02-system-prompt/with-instructions.ts",
+    "l3": "tsx 03-short-term-memory/memory-array.ts",
+    "l4": "tsx 04-response-anatomy/anatomy.ts",
+    "l6": "tsx 06-structured-output/structured.ts",
+    "l7": "tsx 07-tool-calling/one-tool.ts",
+    "l10": "tsx 10-express-summarize/server.ts",
+    "l11": "tsx 11-cli-chat/chat.ts",
+    "l12": "tsx 12-cli-agent/agent.ts",
+    "l13": "tsx 13-express-stateful/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "express": "^5.0.1",
+    "openai": "^6.34.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cookie-parser": "^1.4.7",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
