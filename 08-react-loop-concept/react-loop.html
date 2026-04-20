@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 8 · ReAct Agent Loop 可视化</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-dev: #a78bfa;
+        --c-user: #60a5fa;
+        --c-assistant-thinking: #22d3ee;
+        --c-function-call: #fb923c;
+        --c-function-output: #facc15;
+        --c-final: #34d399;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin: 16px 0 24px;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+      }
+      .swatch {
+        width: 14px; height: 14px; border-radius: 3px;
+      }
+      .timeline {
+        position: relative;
+        padding-left: 28px;
+        border-left: 2px dashed #334155;
+        max-width: 800px;
+      }
+      .event {
+        position: relative;
+        margin: 18px 0;
+        padding: 12px 16px;
+        border-radius: 8px;
+        color: #0f172a;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+      .event::before {
+        content: "";
+        position: absolute;
+        left: -34px;
+        top: 18px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 0 3px #0f172a;
+      }
+      .event .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        opacity: 0.65;
+        margin-bottom: 4px;
+      }
+      .event .body {
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        color: #0f172a;
+      }
+      .dev           { background: var(--c-dev); color: var(--c-dev); }
+      .user          { background: var(--c-user); color: var(--c-user); }
+      .thinking      { background: var(--c-assistant-thinking); color: var(--c-assistant-thinking); }
+      .function-call { background: var(--c-function-call); color: var(--c-function-call); }
+      .function-output { background: var(--c-function-output); color: var(--c-function-output); }
+      .final         { background: var(--c-final); color: var(--c-final); }
+
+      .cycle-header {
+        font-size: 13px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        margin: 32px 0 8px;
+      }
+
+      .arrows {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        margin: 24px 0;
+        flex-wrap: wrap;
+      }
+      .arrow-step {
+        flex: 1 1 150px;
+        padding: 10px;
+        background: #1e293b;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 13px;
+      }
+      .arrow-step b { display: block; font-size: 15px; margin-bottom: 4px; }
+
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+    </style>
+  </head>
+
+  <body>
+    <h1>🌀 ReAct Agent Loop（完整周期）</h1>
+    <p class="muted">
+      ReAct = <b>Reason</b>（思考）→ <b>Act</b>（行动：调工具）→ <b>Observe</b>（观察工具结果）→ 再 Reason…<br />
+      直到 AI 认为"已经可以回答用户了"，循环才退出。
+    </p>
+
+    <div class="arrows">
+      <div class="arrow-step"><b>1. Reason</b>AI 思考"我需要哪些信息？"</div>
+      <div class="arrow-step"><b>2. Act</b>AI 发出 <code>function_call</code></div>
+      <div class="arrow-step"><b>3. Observe</b>你的代码跑函数→拿到结果→回传 <code>function_call_output</code></div>
+      <div class="arrow-step"><b>4. Repeat / Answer</b>AI 看到结果，决定继续调工具 或 输出最终答案</div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--c-dev)"></span>developer (instructions)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-user)"></span>user 提问</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-assistant-thinking)"></span>assistant 思考（reasoning）</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-function-call)"></span>function_call</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-function-output)"></span>function_call_output (observation)</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-final)"></span>最终 assistant 回答</div>
+    </div>
+
+    <div class="cycle-header">📜 示例：用户问"东京和伦敦哪里更暖？"</div>
+
+    <div class="timeline">
+      <div class="event dev">
+        <div class="tag">developer · instructions</div>
+        <div class="body">You are a weather assistant. Use the get_weather tool whenever location data is needed.</div>
+      </div>
+
+      <div class="event user">
+        <div class="tag">user · turn 1</div>
+        <div class="body">Which is warmer right now, Tokyo or London?</div>
+      </div>
+
+      <div class="event thinking">
+        <div class="tag">assistant · reasoning (internal)</div>
+        <div class="body">I need weather data for BOTH cities. I'll call get_weather twice in parallel.</div>
+      </div>
+
+      <div class="event function-call">
+        <div class="tag">assistant · function_call #1</div>
+        <div class="body">{ name: "get_weather", arguments: { city: "Tokyo" }, call_id: "call_A" }</div>
+      </div>
+
+      <div class="event function-call">
+        <div class="tag">assistant · function_call #2</div>
+        <div class="body">{ name: "get_weather", arguments: { city: "London" }, call_id: "call_B" }</div>
+      </div>
+
+      <div class="event function-output">
+        <div class="tag">you (the app) · function_call_output</div>
+        <div class="body">call_id: "call_A" → { city: "Tokyo", tempC: 18, sky: "clear" }</div>
+      </div>
+
+      <div class="event function-output">
+        <div class="tag">you (the app) · function_call_output</div>
+        <div class="body">call_id: "call_B" → { city: "London", tempC: 9, sky: "rainy" }</div>
+      </div>
+
+      <div class="event thinking">
+        <div class="tag">assistant · reasoning (internal)</div>
+        <div class="body">Got both. 18 > 9, so Tokyo is warmer. No more tools needed — compose final answer.</div>
+      </div>
+
+      <div class="event final">
+        <div class="tag">assistant · final answer</div>
+        <div class="body">Tokyo is warmer: 18°C and clear, vs London 9°C and rainy.</div>
+      </div>
+    </div>
+
+    <div class="cycle-header">🔑 对应 Lesson 12 的代码循环</div>
+    <pre style="background:#1e293b;padding:16px;border-radius:8px;overflow-x:auto"><code>while (true) {
+  const resp = await client.responses.create({ input: history, tools });
+
+  const toolCalls = resp.output.filter(i => i.type === "function_call");
+  if (toolCalls.length === 0) {
+    // 没有更多工具调用 → 退出循环，返回最终文本
+    console.log(resp.output_text);
+    break;
+  }
+
+  // 有工具调用 → 本地执行 → 把结果塞回 history
+  history.push(...resp.output);
+  for (const call of toolCalls) {
+    const result = runLocally(call.name, JSON.parse(call.arguments));
+    history.push({
+      type: "function_call_output",
+      call_id: call.call_id,
+      output: JSON.stringify(result),
+    });
+  }
+  // 继续下一轮循环
+}</code></pre>
+  </body>
+</html>

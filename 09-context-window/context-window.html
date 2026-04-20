@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 9 · Context Window 可视化</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-dev: #a78bfa;
+        --c-user: #60a5fa;
+        --c-assistant: #34d399;
+        --c-function-call: #fb923c;
+        --c-function-output: #facc15;
+        --c-free: #1e293b;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      .legend {
+        display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px;
+      }
+      .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+      .swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+      .window-wrap {
+        background: #020617;
+        border: 2px dashed #334155;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 32px;
+      }
+      .window-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+      }
+      .window {
+        display: flex;
+        height: 36px;
+        border-radius: 4px;
+        overflow: hidden;
+        background: var(--c-free);
+      }
+      .window > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+        color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+      }
+      .dev            { background: var(--c-dev); }
+      .user           { background: var(--c-user); }
+      .assistant      { background: var(--c-assistant); }
+      .function-call  { background: var(--c-function-call); }
+      .function-output{ background: var(--c-function-output); }
+      .free           { background: var(--c-free); color: #64748b !important; }
+
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+    </style>
+  </head>
+
+  <body>
+    <h1>📏 Context Window 可视化</h1>
+    <p class="muted">
+      每次调 <code>responses.create</code>，OpenAI 都会把 <b>全部 input + 全部 output</b>（包括 tool call、tool output、reasoning）
+      放进一个有限大小的"口袋"里——这个口袋就叫 <b>context window</b>。
+      口袋装不下就会报错或被截断。
+    </p>
+    <p class="muted">
+      下面用总窗口 <b>128,000 tokens</b>（gpt-5.4-nano 的大致容量）做例子。每个彩色块代表一种消息类型占的 token 数。
+    </p>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--c-dev)"></span>developer / instructions</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-user)"></span>user</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-assistant)"></span>assistant</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-function-call)"></span>function_call</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-function-output)"></span>function_call_output</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-free)"></span>空闲</div>
+    </div>
+
+    <!-- ======= Turn 1 ======= -->
+    <h3>🟢 Turn 1：刚开始，非常空</h3>
+    <div class="window-wrap">
+      <div class="window-label">
+        <span>已用：600 tokens</span>
+        <span>剩余：127,400 tokens</span>
+      </div>
+      <div class="window">
+        <div class="dev"       style="width:0.4%">dev 500</div>
+        <div class="user"      style="width:0.08%"></div>
+        <div class="free"      style="flex:1">（大片空闲）</div>
+      </div>
+    </div>
+
+    <!-- ======= Turn 5 ======= -->
+    <h3>🟡 Turn 5：连续几轮对话 + 偶尔调工具</h3>
+    <div class="window-wrap">
+      <div class="window-label">
+        <span>已用：4,200 tokens</span>
+        <span>剩余：123,800 tokens</span>
+      </div>
+      <div class="window">
+        <div class="dev"              style="width:0.4%"></div>
+        <div class="user"             style="width:0.3%"></div>
+        <div class="assistant"        style="width:0.5%"></div>
+        <div class="user"             style="width:0.3%"></div>
+        <div class="function-call"    style="width:0.2%"></div>
+        <div class="function-output"  style="width:0.5%"></div>
+        <div class="assistant"        style="width:0.6%"></div>
+        <div class="user"             style="width:0.3%"></div>
+        <div class="assistant"        style="width:0.2%"></div>
+        <div class="free" style="flex:1">剩余空间多</div>
+      </div>
+    </div>
+
+    <!-- ======= Turn 30 ======= -->
+    <h3>🟠 Turn 30：长对话 + 频繁工具调用</h3>
+    <div class="window-wrap">
+      <div class="window-label">
+        <span>已用：58,000 tokens</span>
+        <span>剩余：70,000 tokens</span>
+      </div>
+      <div class="window">
+        <div class="dev"             style="width:0.4%"></div>
+        <div class="user"            style="width:3%"></div>
+        <div class="assistant"       style="width:4%"></div>
+        <div class="function-call"   style="width:2%"></div>
+        <div class="function-output" style="width:8%"></div>
+        <div class="assistant"       style="width:3%"></div>
+        <div class="user"            style="width:3%"></div>
+        <div class="function-call"   style="width:2%"></div>
+        <div class="function-output" style="width:10%"></div>
+        <div class="assistant"       style="width:5%"></div>
+        <div class="user"            style="width:2%"></div>
+        <div class="function-output" style="width:7%"></div>
+        <div class="free" style="flex:1">还剩 ≈55%</div>
+      </div>
+    </div>
+
+    <!-- ======= Turn 80 ======= -->
+    <h3>🔴 Turn 80：接近爆炸 — 需要干预了</h3>
+    <div class="window-wrap">
+      <div class="window-label">
+        <span>已用：120,000 tokens</span>
+        <span>剩余：8,000 tokens ⚠️</span>
+      </div>
+      <div class="window">
+        <div class="dev"              style="width:0.4%"></div>
+        <div class="user"             style="width:6%"></div>
+        <div class="assistant"        style="width:8%"></div>
+        <div class="function-call"    style="width:4%"></div>
+        <div class="function-output"  style="width:15%"></div>
+        <div class="assistant"        style="width:6%"></div>
+        <div class="user"             style="width:5%"></div>
+        <div class="function-call"    style="width:4%"></div>
+        <div class="function-output"  style="width:20%"></div>
+        <div class="assistant"        style="width:8%"></div>
+        <div class="user"             style="width:6%"></div>
+        <div class="function-output"  style="width:15%"></div>
+        <div class="assistant"        style="width:6%"></div>
+        <div class="free" style="flex:1">⚠️</div>
+      </div>
+    </div>
+
+    <div class="takeaway">
+      <b>💡 三条必须记住的规律：</b>
+      <ol>
+        <li><b>工具 output 是最大的消耗者</b>（黄色块总是最长）。尤其是返回 JSON 数据的工具。</li>
+        <li><b>轮次越多 → 空闲越少。</b>无脑把 history 一直往数组里 push，迟早爆炸。</li>
+        <li><b>当窗口快满时有 3 种救场法</b>：
+          <ul>
+            <li>🪚 <b>截断</b>（trim）：删掉最老的几轮 — 简单但可能丢关键信息</li>
+            <li>🗜️ <b>摘要</b>（summarize）：用模型把老历史压成一段摘要</li>
+            <li>🏗️ <b>服务端托管</b>：用 2026 的 Conversations API 或 <code>previous_response_id</code> + <code>context_management</code> / 自动 compaction，让 OpenAI 帮你管</li>
+          </ul>
+        </li>
+      </ol>
+    </div>
+
+    <h3>🧮 自己估算：token 粗略换算</h3>
+    <ul class="muted">
+      <li>英文：1 个 token ≈ 0.75 个单词（100 单词 ≈ 133 token）</li>
+      <li>中文：1 个汉字 ≈ 1~2 个 token</li>
+      <li>JSON：字段名 + 引号 + 花括号都吃 token —— 结构越复杂越烧</li>
+      <li>精确算：去 <a href="https://platform.openai.com/tokenizer" target="_blank" style="color:#60a5fa">platform.openai.com/tokenizer</a></li>
+    </ul>
+  </body>
+</html>
