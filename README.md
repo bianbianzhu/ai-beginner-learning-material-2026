@@ -1,5 +1,7 @@
 # AI in 2026 · Hands-on Lab
 
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
+
 零 AI 经验 → 会用 **OpenAI Responses API (2026)** + **TypeScript** + **Express** 写产品级 AI 服务。
 
 ## 前置
@@ -44,3 +46,13 @@ cp .env.example .env
 - `system` 角色 → `developer` 角色（或直接用 `instructions` 参数）
 - 工具调用的 output item 类型：`function_call` / `function_call_output`
 - 结构化输出：`text: { format: zodTextFormat(schema, name) }` + `responses.parse()`
+
+## License
+
+本仓库所有内容（代码 + 讲义）采用 **[CC BY-NC 4.0](./LICENSE)** 协议。
+
+- ✅ 可以自由转载、学习、二次创作
+- ✅ 转载/引用请**署名** Tianyi Li (bianbianzhu) 并附本仓库链接
+- ❌ **禁止任何形式的商业使用**（包括但不限于：打包成付费课程、付费教程、付费专栏等）
+
+有商业合作需求请联系作者。
