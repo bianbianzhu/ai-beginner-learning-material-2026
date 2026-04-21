@@ -34,6 +34,7 @@ cp .env.example .env
 | 11 | Readline 多轮 CLI 对话 | `pnpm l11` |
 | 12 | CLI Agent（完整 ReAct loop + 工具） | `pnpm l12` |
 | 13 | Express 有状态 API（sessionId + cookie） | `pnpm l13` |
+| 14 | **Streaming Chat**（Vite+React 前端 + SSE + 流式 tool calling） | `pnpm l14:server` + `pnpm l14:web` |
 
 ## 学习路径
 

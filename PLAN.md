@@ -251,6 +251,34 @@ ai-in-2026/
 
 ---
 
+### 第 14 课 · `14-streaming-chat/`（前端 UI + 后端 SSE + 流式 Tool Calling）
+**目标**：让 AI 回复像 ChatGPT 一样"边生成边显示"。课程从此从 CLI/curl 走到真浏览器。
+
+- **技术选型**：
+  - 前端：**React 19** + **Vite 6** + **TypeScript**（独立 `web/package.json`）
+  - 后端：继续 **Express v5** + **openai SDK**（Responses API 的 `stream: true` 模式）
+  - 传输：**SSE**（Server-Sent Events），不用 WebSocket
+- **核心概念**：
+  - **TTFT**（Time to First Token）—— 用户感知延迟的唯一关键指标
+  - Responses API 流式事件：`response.output_text.delta` / `response.output_item.added` / `response.function_call_arguments.delta` / `response.output_item.done` / `response.completed`
+  - 前端拼帧三件套：`fetch` + `ReadableStream.getReader()` + `TextDecoder({ stream: true })` + `buf.split("\n\n")`
+  - 流式 Tool Calling：参数 JSON 字符一个一个流入 → 拼完 → 本地执行 → 推回 history → agent loop 下一轮
+  - `AbortController` 双向：前端停止按钮 → 切断 fetch；后端 `res.on("close")` → 切断上游 OpenAI 请求
+- **产出**：
+  - `server/` — `server.ts` + `session.ts` + `tools.ts`
+  - `web/` — Vite + React，独立 TS 工程；vite.config.ts 配 `/api` → `:3000` 代理
+  - `docs/` — 4 份 HTML 课件：TTFT / 事件流 / SSE 线格式 / AI SDK v6 对比
+- **七步 checkpoint**（README 里详述）：
+  1. 概念（读 HTML 课件）
+  2. 最小 SSE 后端（纯文本）
+  3. 接入 session + history
+  4. 最小 React 前端（字符能流出来）
+  5. 聊天 UI 打磨（气泡 / typing / 自动滚动 / Enter 发送）
+  6. 流式 Tool Calling（本课难点）
+  7. Abort + retry + AI SDK 对比课件
+
+---
+
 ## 3. 执行顺序（先骨架，再按课推进）
 
 1. **Step 0**：建 `package.json` / `tsconfig.json` / `.gitignore` / `README.md`（根目录导览）

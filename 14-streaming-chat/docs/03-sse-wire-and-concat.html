@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 14 · SSE 线格式 + 前端拼帧原理</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-bytes: #fb923c;
+        --c-buf:   #facc15;
+        --c-frame: #34d399;
+        --c-state: #60a5fa;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+
+      .wire {
+        font-family: "SF Mono", Menlo, monospace;
+        background: #020617;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 16px 20px;
+        font-size: 13px;
+        line-height: 1.7;
+        overflow-x: auto;
+      }
+      .wire .evt  { color: #a78bfa; }
+      .wire .data { color: #34d399; }
+      .wire .sep  { color: #64748b; }
+      .wire .cr   { color: #475569; font-size: 10px; letter-spacing: 0.05em; }
+
+      .pipe {
+        display: grid;
+        grid-template-columns: 1fr 28px 1fr 28px 1fr 28px 1fr;
+        gap: 4px;
+        align-items: stretch;
+        margin: 16px 0;
+      }
+      .pipe .arrow {
+        display: flex; align-items: center; justify-content: center;
+        color: #64748b; font-size: 20px;
+      }
+      .pipe .stage {
+        background: #1e293b;
+        border-radius: 6px;
+        padding: 10px;
+        font-size: 12px;
+      }
+      .pipe .stage .title {
+        font-weight: 700;
+        font-size: 13px;
+        margin-bottom: 6px;
+      }
+      .pipe .stage .code {
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 11px;
+        color: #94a3b8;
+        background: #0f172a;
+        padding: 6px;
+        border-radius: 3px;
+        word-break: break-all;
+      }
+      .pipe .stage:nth-child(1) .title { color: var(--c-bytes); }
+      .pipe .stage:nth-child(3) .title { color: var(--c-buf); }
+      .pipe .stage:nth-child(5) .title { color: var(--c-frame); }
+      .pipe .stage:nth-child(7) .title { color: var(--c-state); }
+
+      .cases {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 12px;
+        margin: 12px 0;
+      }
+      .case {
+        background: #1e293b;
+        border-top: 3px solid #fb923c;
+        border-radius: 6px;
+        padding: 14px 16px;
+      }
+      .case b { display: block; color: #f1f5f9; margin-bottom: 4px; }
+      .case p { margin: 4px 0; font-size: 13px; color: #cbd5e1; }
+      .case code { font-size: 12px; }
+
+      pre { background: #1e293b; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+      .takeaway ul { margin: 8px 0; padding-left: 20px; }
+      .takeaway li { margin: 6px 0; }
+    </style>
+  </head>
+
+  <body>
+    <h1>🪢 SSE 线格式 + 前端拼帧原理</h1>
+    <p class="muted">
+      服务端用什么"格式"把文字流到浏览器？<br />
+      答案：<b>SSE（Server-Sent Events）</b>——HTTP 的 long-lived 响应，文本协议，<code>Content-Type: text/event-stream</code>，浏览器原生支持。
+    </p>
+
+    <h3>🧾 SSE 的原始字节长这样</h3>
+    <div class="wire">
+<span class="sep">HTTP/1.1 200 OK</span>
+<span class="sep">Content-Type: text/event-stream</span>
+<span class="sep">Cache-Control: no-cache</span>
+<span class="sep">Connection: keep-alive</span>
+
+<span class="evt">event:</span> delta
+<span class="data">data:</span> {"text":"你"}<span class="cr">\n\n</span>
+
+<span class="evt">event:</span> delta
+<span class="data">data:</span> {"text":"好"}<span class="cr">\n\n</span>
+
+<span class="evt">event:</span> delta
+<span class="data">data:</span> {"text":"，"}<span class="cr">\n\n</span>
+
+<span class="evt">event:</span> tool_start
+<span class="data">data:</span> {"id":"fc_1","name":"get_weather"}<span class="cr">\n\n</span>
+
+<span class="evt">event:</span> tool_args_delta
+<span class="data">data:</span> {"id":"fc_1","delta":"{\"ci"}<span class="cr">\n\n</span>
+
+<span class="evt">event:</span> done
+<span class="data">data:</span> {"usage":{"input_tokens":42,"output_tokens":18}}<span class="cr">\n\n</span>
+    </div>
+    <p class="muted">
+      每一"帧"由三部分组成：<code>event: &lt;name&gt;</code>（可选）+ <code>data: &lt;payload&gt;</code> + <b>一个空行</b>（<code>\n\n</code>）作为分隔符。<br />
+      <b>空行是关键</b>——它是唯一的帧边界。
+    </p>
+
+    <h3>🛠️ 前端的拼帧管道</h3>
+    <div class="pipe">
+      <div class="stage">
+        <div class="title">① 网络 chunk</div>
+        <div>fetch 的 <code>response.body</code> 是 <code>ReadableStream&lt;Uint8Array&gt;</code>。<br />一次 <code>reader.read()</code> 返回的 chunk <b>不等于</b>一个完整的 event。</div>
+        <div class="code">value: Uint8Array([...])</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="title">② 字符串 buffer</div>
+        <div>用 <code>TextDecoder</code> 解码。<b>必须 <code>stream: true</code></b>——避免中文多字节被切在中间变乱码。</div>
+        <div class="code">buf += decoder.decode(value, { stream: true })</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="title">③ 按 \n\n 切帧</div>
+        <div>把 buf 按 <code>\n\n</code> split。<b>最后一段</b>可能不完整，留回 buf 等下一个 chunk。</div>
+        <div class="code">const frames = buf.split("\n\n");<br />buf = frames.pop()!;</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <div class="title">④ 更新 UI state</div>
+        <div>每一帧解析出 <code>event</code> 和 <code>data</code>，按事件名分发到 setState。</div>
+        <div class="code">setMessages(prev =&gt; [...]);</div>
+      </div>
+    </div>
+
+    <h3>✅ 一个能跑的最小前端</h3>
+    <pre><code>const resp = await fetch("/api/chat/stream", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ message: text }),
+});
+
+const reader = resp.body!.getReader();
+const decoder = new TextDecoder();
+let buf = "";
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+
+  buf += decoder.decode(value, { stream: true });   // ← stream:true 必须
+  const frames = buf.split("\n\n");
+  buf = frames.pop()!;                              // ← 最后一段可能半截，留回
+
+  for (const frame of frames) {
+    if (!frame.trim()) continue;
+    // 解析 "event: xxx\ndata: {...}"
+    const lines = frame.split("\n");
+    let ev = "message", data = "";
+    for (const l of lines) {
+      if (l.startsWith("event: ")) ev = l.slice(7);
+      else if (l.startsWith("data: ")) data = l.slice(6);
+    }
+    const payload = JSON.parse(data);
+    handle(ev, payload);     // ← 你的 dispatch
+  }
+}</code></pre>
+
+    <h3>⚠️ 4 个容易踩的坑</h3>
+    <div class="cases">
+      <div class="case">
+        <b>坑 1：chunk 边界 ≠ 帧边界</b>
+        <p>一次 chunk 可能拿到 <code>event: delta\ndata: {"text":"你</code>（半截）。直接 JSON.parse 会炸。</p>
+        <p>✅ 解法：永远 buffer，按 <code>\n\n</code> 切，最后一段留回。</p>
+      </div>
+      <div class="case">
+        <b>坑 2：TextDecoder 没带 stream:true</b>
+        <p>中文占 3 字节，一次 chunk 如果切在中文中间，解码会得到 �。</p>
+        <p>✅ 解法：<code>decoder.decode(value, { stream: true })</code>，让它保留未完成的字节到下次。</p>
+      </div>
+      <div class="case">
+        <b>坑 3：用 EventSource</b>
+        <p><code>EventSource</code> 只支持 GET，不能 POST 带 body。本课用 <code>fetch + ReadableStream</code>。</p>
+        <p>✅ 2026 的正解：fetch streaming（浏览器 95%+ 支持）。</p>
+      </div>
+      <div class="case">
+        <b>坑 4：Express 不 flush</b>
+        <p>默认 response 会缓冲，前端半天看不到字节。</p>
+        <p>✅ 解法：<code>res.flushHeaders()</code> + 及时 <code>res.write()</code>，不要等整体结束。</p>
+      </div>
+    </div>
+
+    <div class="takeaway">
+      <b>💡 本页要带走的 3 条：</b>
+      <ul>
+        <li>SSE 的帧边界永远是 <b>空行</b>（<code>\n\n</code>）。你的前端必须 buffer + split + 留尾。</li>
+        <li>字节 chunk 和 event 帧是<b>两个不同概念</b>。TextDecoder 的 <code>stream:true</code> 是正确解码的关键。</li>
+        <li>后端要 <code>res.flushHeaders()</code> 并每次 <code>res.write()</code>，否则 TTFT 不存在（全被 Node/Express 缓冲了）。</li>
+      </ul>
+    </div>
+  </body>
+</html>

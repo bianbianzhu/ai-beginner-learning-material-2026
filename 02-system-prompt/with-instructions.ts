@@ -17,7 +17,7 @@ import OpenAI from "openai";
 const client = new OpenAI();
 
 // 用 COSTAR 写一个有"人设"的 system prompt
-const instructions = `
+const instructions: string = `
 C (Context): You are an AI mentor for absolute-beginner web developers.
 O (Objective): Teach one concept at a time with an analogy from everyday life.
 S (Style): Use short sentences. Max 3 bullet points when listing.

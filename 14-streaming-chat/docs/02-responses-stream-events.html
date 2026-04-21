@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 14 · Responses API 流式事件全景</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-lifecycle: #a78bfa;
+        --c-text:      #34d399;
+        --c-tool-s:    #fb923c;
+        --c-tool-a:    #facc15;
+        --c-tool-r:    #60a5fa;
+        --c-done:      #22d3ee;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+      pre { background: #1e293b; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 13px; }
+
+      .legend {
+        display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0 24px;
+      }
+      .legend-item {
+        display: flex; align-items: center; gap: 6px; font-size: 13px;
+      }
+      .swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+      .timeline {
+        position: relative;
+        padding-left: 28px;
+        border-left: 2px dashed #334155;
+        max-width: 820px;
+      }
+      .event {
+        position: relative;
+        margin: 14px 0;
+        padding: 12px 16px;
+        border-radius: 8px;
+        color: #0f172a;
+        font-weight: 500;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      }
+      .event::before {
+        content: "";
+        position: absolute;
+        left: -34px;
+        top: 18px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 0 3px #0f172a;
+      }
+      .event .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        opacity: 0.65;
+        margin-bottom: 4px;
+        font-family: "SF Mono", Menlo, monospace;
+      }
+      .event .body {
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        color: #0f172a;
+      }
+      .event .count {
+        display: inline-block;
+        background: rgba(15,23,42,0.25);
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        margin-left: 8px;
+      }
+
+      .lifecycle { background: var(--c-lifecycle); color: var(--c-lifecycle); }
+      .text      { background: var(--c-text);      color: var(--c-text); }
+      .tool-s    { background: var(--c-tool-s);    color: var(--c-tool-s); }
+      .tool-a    { background: var(--c-tool-a);    color: var(--c-tool-a); }
+      .tool-r    { background: var(--c-tool-r);    color: var(--c-tool-r); }
+      .done      { background: var(--c-done);      color: var(--c-done); }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 16px 0;
+      }
+      .split > h3 { grid-column: 1 / -1; }
+
+      .branch-title {
+        font-size: 12px;
+        color: #94a3b8;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin: 0 0 8px 0;
+      }
+
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+      .takeaway ul { margin: 8px 0; padding-left: 20px; }
+      .takeaway li { margin: 6px 0; }
+
+      .pill {
+        display: inline-block;
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #1e293b;
+        color: #94a3b8;
+        margin-left: 6px;
+        font-family: "SF Mono", Menlo, monospace;
+      }
+      .pill.must { background: #facc15; color: #0f172a; font-weight: 700; }
+    </style>
+  </head>
+
+  <body>
+    <h1>🌊 Responses API 流式事件全景</h1>
+    <p class="muted">
+      调用 <code>client.responses.create({ ..., stream: true })</code> 得到的不是一个对象，是一个<b>语义事件流</b>。<br />
+      每个事件都有 <code>type</code> 字段。你用 <code>for await (const ev of stream)</code> 遍历，按 type 做分发。
+    </p>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--c-lifecycle)"></span>生命周期事件</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-text)"></span>文本流</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-tool-s)"></span>工具调用开始</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-tool-a)"></span>工具参数流</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-tool-r)"></span>工具调用完成</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-done)"></span>整体完成</div>
+    </div>
+
+    <h3>📜 分支 A：只生成文本（没有 tool call）</h3>
+    <div class="timeline">
+      <div class="event lifecycle">
+        <div class="tag">response.created <span class="pill">1次</span></div>
+        <div class="body">{ response: { id, model, status:"in_progress" } }</div>
+      </div>
+
+      <div class="event lifecycle">
+        <div class="tag">response.output_item.added</div>
+        <div class="body">{ item: { type:"message", role:"assistant", content:[] } }</div>
+      </div>
+
+      <div class="event lifecycle">
+        <div class="tag">response.content_part.added</div>
+        <div class="body">{ part: { type:"output_text", text:"" } }</div>
+      </div>
+
+      <div class="event text">
+        <div class="tag">response.output_text.delta <span class="pill must">N 次 · 核心！</span></div>
+        <div class="body">{ delta: "你" }   { delta: "好" }   { delta: "，" }   { delta: "我" }  ...</div>
+      </div>
+
+      <div class="event lifecycle">
+        <div class="tag">response.content_part.done</div>
+        <div class="body">{ part: { type:"output_text", text:"你好，我是 ..." } }</div>
+      </div>
+
+      <div class="event lifecycle">
+        <div class="tag">response.output_item.done</div>
+        <div class="body">item 最终态（完整 message）</div>
+      </div>
+
+      <div class="event done">
+        <div class="tag">response.completed <span class="pill">1次</span></div>
+        <div class="body">{ response: { status:"completed", usage:{ input_tokens, output_tokens } } }</div>
+      </div>
+    </div>
+
+    <h3>🔧 分支 B：模型决定调用 tool（例："东京几度？" → get_weather）</h3>
+    <div class="timeline">
+      <div class="event lifecycle">
+        <div class="tag">response.created</div>
+        <div class="body">{ status:"in_progress" }</div>
+      </div>
+
+      <div class="event tool-s">
+        <div class="tag">response.output_item.added <span class="pill must">item.type === "function_call"</span></div>
+        <div class="body">{ item: { type:"function_call", name:"get_weather", call_id:"call_abc", arguments:"" } }</div>
+      </div>
+
+      <div class="event tool-a">
+        <div class="tag">response.function_call_arguments.delta <span class="pill must">N 次 · 拼 JSON 字符串</span></div>
+        <div class="body">{ delta: "{\"ci" }   { delta: "ty\":" }   { delta: "\"Tok" }   { delta: "yo\"}" }</div>
+      </div>
+
+      <div class="event tool-r">
+        <div class="tag">response.function_call_arguments.done</div>
+        <div class="body">{ arguments: "{\"city\":\"Tokyo\"}" }   ← 完整 JSON 字符串拿到</div>
+      </div>
+
+      <div class="event tool-r">
+        <div class="tag">response.output_item.done</div>
+        <div class="body">item 终态，你现在可以 JSON.parse(arguments) 然后本地执行 get_weather</div>
+      </div>
+
+      <div class="event done">
+        <div class="tag">response.completed</div>
+        <div class="body">注意：这一轮 response 到此结束。你要再发一次 responses.create 带着 function_call_output 继续。</div>
+      </div>
+    </div>
+
+    <h3>🔁 分支 C：完整 agent 循环（Lesson 12 流式版）</h3>
+    <pre><code>while (true) {
+  const stream = await client.responses.create({
+    model: "gpt-5.4-nano",
+    input: history,
+    tools,
+    stream: true,
+  });
+
+  const pending = new Map();   // call_id → { name, args:"" }
+  let text = "";
+  let hadToolCall = false;
+
+  for await (const ev of stream) {
+    switch (ev.type) {
+      case "response.output_text.delta":
+        text += ev.delta;
+        writeSSE("delta", { text: ev.delta });
+        break;
+
+      case "response.output_item.added":
+        if (ev.item.type === "function_call") {
+          hadToolCall = true;
+          pending.set(ev.item.id, { name: ev.item.name, args: "", call_id: ev.item.call_id });
+          writeSSE("tool_start", { id: ev.item.id, name: ev.item.name });
+        }
+        break;
+
+      case "response.function_call_arguments.delta":
+        pending.get(ev.item_id).args += ev.delta;
+        writeSSE("tool_args_delta", { id: ev.item_id, delta: ev.delta });
+        break;
+
+      case "response.output_item.done":
+        if (ev.item.type === "function_call") {
+          const parsed = JSON.parse(ev.item.arguments);
+          const result = await runTool(ev.item.name, parsed);
+          history.push(ev.item);
+          history.push({ type:"function_call_output", call_id: ev.item.call_id, output: JSON.stringify(result) });
+          writeSSE("tool_result", { id: ev.item.id, result });
+        }
+        break;
+    }
+  }
+
+  if (!hadToolCall) {
+    history.push({ role:"assistant", content: text });
+    writeSSE("done", {});
+    return;          // ← 没有更多 tool，退出循环
+  }
+  // ← 有 tool call，回到 while 顶部重发一次 responses.create
+}</code></pre>
+
+    <div class="takeaway">
+      <b>💡 你只需记住这 6 个事件（按出现顺序）：</b>
+      <ul>
+        <li><code>response.created</code> — 响应开始（可做"开始"UI 提示）</li>
+        <li><code>response.output_text.delta</code> — <b>每个文字碎片</b> · N 次 · 追加到 assistant 消息</li>
+        <li><code>response.output_item.added</code> — 新 item（可能是 message，也可能是 function_call）</li>
+        <li><code>response.function_call_arguments.delta</code> — <b>每个 JSON 字符碎片</b> · 拼到 args buffer</li>
+        <li><code>response.output_item.done</code> — 这个 item 写完了（function_call 要在这里执行）</li>
+        <li><code>response.completed</code> — 整个响应结束（带 usage；可能仍需下一轮循环）</li>
+      </ul>
+      <p style="margin-top:12px">
+        ⚠️ <b>文本流和工具流可以穿插出现</b>——同一个 response 里，AI 可能先说两句话，再调一个工具。switch 各种 type，别假设顺序。
+      </p>
+    </div>
+  </body>
+</html>

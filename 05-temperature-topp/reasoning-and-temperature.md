@@ -11,6 +11,9 @@
 
 > ⚠️ 需要更正一点:**GPT-5.4 已经发布(2026-03-05),但你说的"Gemini 3.1 Pro"目前还不存在**(纯幻觉，劳资用老久了）。Google 3 系列目前有 Gemini 3 Pro、Gemini 3 Flash、Gemini 3.1 Flash-Lite、Nano Banana Pro (3 Pro Image) 和 Nano Banana 2 (3.1 Flash Image),没有 3.1 Pro。下面 Gemini 部分按 **Gemini 3 Pro** 来讲。
 
+文章是AI生成的，你要自己做spike check，不要盲从。
+文章有copyright
+
 ---
 
 ## 二、按厂商详细分析

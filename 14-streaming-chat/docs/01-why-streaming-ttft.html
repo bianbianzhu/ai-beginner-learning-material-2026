@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 14 · 为什么要 Streaming? TTFT 的意义</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-wait:  #475569;
+        --c-burst: #f472b6;
+        --c-first: #facc15;
+        --c-flow:  #34d399;
+        --c-user:  #60a5fa;
+        --c-hl:    #a78bfa;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+
+      .timeline-wrap {
+        background: #020617;
+        border: 1px solid #1e293b;
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin: 16px 0;
+      }
+      .timeline-label {
+        display: flex;
+        justify-content: space-between;
+        font-size: 13px;
+        color: #94a3b8;
+        margin-bottom: 8px;
+      }
+      .bar {
+        display: flex;
+        height: 40px;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #1e293b;
+      }
+      .bar > div {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 600;
+        color: #0f172a;
+        overflow: hidden;
+        white-space: nowrap;
+      }
+      .seg-wait  { background: var(--c-wait);  color: #e2e8f0; }
+      .seg-burst { background: var(--c-burst); }
+      .seg-first { background: var(--c-first); }
+      .seg-flow  { background: var(--c-flow);  }
+      .seg-user  { background: var(--c-user);  }
+
+      .ticks {
+        display: flex;
+        justify-content: space-between;
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 4px;
+        font-family: "SF Mono", Menlo, monospace;
+      }
+
+      .metric {
+        display: inline-block;
+        background: #1e293b;
+        padding: 10px 16px;
+        border-radius: 6px;
+        margin-right: 12px;
+        margin-top: 8px;
+        font-family: "SF Mono", Menlo, monospace;
+        font-size: 14px;
+      }
+      .metric b { color: var(--c-hl); }
+
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 12px;
+        margin: 16px 0;
+      }
+      .card {
+        background: #1e293b;
+        border-top: 3px solid var(--c-user);
+        padding: 14px 16px;
+        border-radius: 6px;
+      }
+      .card:nth-child(2) { border-top-color: var(--c-flow); }
+      .card:nth-child(3) { border-top-color: var(--c-first); }
+      .card b { display: block; margin-bottom: 4px; color: #f1f5f9; }
+      .card p { margin: 4px 0; font-size: 13px; color: #cbd5e1; }
+
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+
+      .huge {
+        font-size: 38px;
+        font-weight: 700;
+        text-align: center;
+        padding: 24px;
+        background: linear-gradient(90deg, #1e293b, #0f172a);
+        border-radius: 8px;
+        margin: 24px 0;
+        letter-spacing: 0.02em;
+      }
+      .huge .small { display: block; font-size: 14px; font-weight: 400; color: #94a3b8; margin-top: 6px; letter-spacing: 0; }
+    </style>
+  </head>
+
+  <body>
+    <h1>⏱️ 为什么要 Streaming? —— TTFT 的意义</h1>
+    <p class="muted">
+      后端明明已经能调用模型了，为什么 ChatGPT 那种"边打字边显示"的体验还需要专门学？<br />
+      答案只有一个词：<b>TTFT（Time to First Token）</b>。
+    </p>
+
+    <h3>🐢 Non-streaming：用户要等全部生成完才看到任何东西</h3>
+    <div class="timeline-wrap">
+      <div class="timeline-label">
+        <span>用户视角：点下"发送"到看到文字的时间</span>
+        <span>总耗时 3.2s</span>
+      </div>
+      <div class="bar">
+        <div class="seg-user"  style="width:3%">→</div>
+        <div class="seg-wait"  style="width:90%">⏳ 沉默……AI 在后台生成（用户不知道发生了什么）</div>
+        <div class="seg-burst" style="width:7%">💥 一次性出全部</div>
+      </div>
+      <div class="ticks">
+        <span>0s</span><span>1s</span><span>2s</span><span>3s</span>
+      </div>
+    </div>
+
+    <h3>🚀 Streaming：首字在 200ms 内出现，之后持续流出</h3>
+    <div class="timeline-wrap">
+      <div class="timeline-label">
+        <span>用户视角：200ms 就看到第一个字开始打出来</span>
+        <span>总耗时 3.2s（一样）</span>
+      </div>
+      <div class="bar">
+        <div class="seg-user"  style="width:3%">→</div>
+        <div class="seg-first" style="width:5%">首字</div>
+        <div class="seg-flow"  style="width:92%">持续 token by token 流出 ——用户一边看一边读</div>
+      </div>
+      <div class="ticks">
+        <span>0s</span><span>1s</span><span>2s</span><span>3s</span>
+      </div>
+    </div>
+
+    <div class="huge">
+      TTFT ≈ 200ms
+      <span class="small">Time to First Token —— 用户感知延迟的唯一关键指标</span>
+    </div>
+
+    <h3>🧠 关键认知：响应速度 ≠ 总时长</h3>
+    <div class="cards">
+      <div class="card">
+        <b>① 感知延迟由 TTFT 决定</b>
+        <p>用户"什么时候看到第一个字"，比"总共花多久"重要得多。<br />200ms 首字的 3 秒回复，比 2 秒沉默的 2 秒回复体验更好。</p>
+      </div>
+      <div class="card">
+        <b>② 用户边看边读</b>
+        <p>正常人阅读速度 ≈ 200 wpm（每秒 3-4 个词）。<br />如果 AI 生成速度 ≥ 阅读速度，用户根本不会"等"——他们在读。</p>
+      </div>
+      <div class="card">
+        <b>③ 系统"活着"的信号</b>
+        <p>流式 = 每一个 chunk 都在告诉用户"我还在工作"。<br />没有 loading spinner 也不会被误以为卡死。</p>
+      </div>
+    </div>
+
+    <h3>📊 关键指标一览</h3>
+    <div>
+      <div class="metric">TTFT = <b>First-token latency</b></div>
+      <div class="metric">TPS = <b>Tokens / second</b>（生成速率）</div>
+      <div class="metric">Total latency = <b>TTFT + Output / TPS</b></div>
+    </div>
+    <p class="muted" style="margin-top:12px">
+      典型值（<code>gpt-5.4-nano</code> 同区域）：TTFT ≈ 150-400ms，TPS ≈ 80-150 tok/s。跨区域加 RTT。
+    </p>
+
+    <div class="takeaway">
+      <b>💡 一句话记住本课的动机：</b>
+      <p style="margin:8px 0 0">
+        非流式：用户等 3 秒，什么都看不到 → 像卡死的页面。<br />
+        流式：首字 200ms 出现 → 用户立刻获得"系统在工作"的反馈 + 可以提前阅读。
+      </p>
+      <p style="margin:8px 0 0">
+        所以 AI 产品的体验差距，很大一部分就在<b>要不要做 streaming</b>。
+      </p>
+    </div>
+  </body>
+</html>

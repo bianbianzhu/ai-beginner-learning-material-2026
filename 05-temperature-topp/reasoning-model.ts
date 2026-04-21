@@ -6,11 +6,11 @@ const client = new OpenAI(); // 自动读取 process.env.OPENAI_API_KEY
 async function main() {
   const response = await client.responses.create({
     model: "gpt-5.4-nano",
-    input: "洗车店离我50米，我要去洗车，我开过去还是走过去？",
+    input: "中国有句古话叫做 说曹操到，曹操到。那么曹操到底到没到？",
     temperature: 1,
     reasoning: {
-      effort: "minimal",
-      summary: "concise",
+      effort: "low",
+      summary: "detailed",
     },
   });
 

@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 14 · 原生实现 vs Vercel AI SDK v6</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-native: #60a5fa;
+        --c-sdk:    #a78bfa;
+        --c-win:    #34d399;
+        --c-lose:   #f87171;
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; }
+      pre {
+        background: #1e293b;
+        padding: 14px 16px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-size: 12px;
+        font-family: "SF Mono", Menlo, monospace;
+        line-height: 1.5;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin: 16px 0;
+      }
+      .split > .col {
+        background: #1e293b;
+        padding: 14px 18px;
+        border-radius: 8px;
+        border-top: 3px solid #334155;
+      }
+      .split .col.native { border-top-color: var(--c-native); }
+      .split .col.sdk    { border-top-color: var(--c-sdk); }
+      .split .col h4 {
+        margin: 0 0 8px;
+        font-size: 15px;
+        color: #f1f5f9;
+      }
+      .split .col .pill {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 999px;
+        margin-left: 6px;
+      }
+      .split .col.native .pill { background: var(--c-native); color: #0f172a; }
+      .split .col.sdk .pill    { background: var(--c-sdk);    color: #0f172a; }
+
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+        margin: 12px 0;
+      }
+      th, td {
+        padding: 10px 12px;
+        text-align: left;
+        border-bottom: 1px solid #334155;
+      }
+      th {
+        background: #1e293b;
+        color: #cbd5e1;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      td { vertical-align: top; }
+      .yes { color: var(--c-win); font-weight: 600; }
+      .no  { color: var(--c-lose); font-weight: 600; }
+
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+      .takeaway b { color: #f1f5f9; }
+    </style>
+  </head>
+
+  <body>
+    <h1>⚖️ 原生 OpenAI SDK vs Vercel AI SDK v6</h1>
+    <p class="muted">
+      你本课<b>手写</b>了 SSE、<code>ReadableStream</code> 拼帧、事件分发、agent loop。<br />
+      这些事 <a href="https://ai-sdk.dev" style="color:#60a5fa">Vercel AI SDK</a>（2026 主流抽象）全都替你做了。<br />
+      本页不是推销——是让你<b>看清自己手写了什么</b>，进而决定什么时候值得换抽象。
+    </p>
+
+    <h3>① 后端：定义一条流式聊天路由</h3>
+    <div class="split">
+      <div class="col native">
+        <h4>本课的原生实现<span class="pill">~80 行</span></h4>
+<pre><code>app.post("/api/chat/stream", async (req, res) =&gt; {
+  const state = getState(req);
+  state.chatHistory.push({ role:"user", content: req.body.message });
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.flushHeaders();
+  const write = (e, d) =&gt; res.write(`event: ${e}\ndata: ${JSON.stringify(d)}\n\n`);
+
+  while (true) {
+    const stream = await client.responses.create({
+      model: "gpt-5.4-nano",
+      input: state.chatHistory,
+      tools,
+      stream: true,
+    });
+
+    let text = ""; let hadTool = false;
+    const pending = new Map();
+    for await (const ev of stream) {
+      switch (ev.type) {
+        case "response.output_text.delta":
+          text += ev.delta; write("delta", { text: ev.delta }); break;
+        case "response.output_item.added":
+          if (ev.item.type === "function_call") { hadTool = true; /* ... */ } break;
+        case "response.function_call_arguments.delta":
+          /* 拼 args buffer */ break;
+        case "response.output_item.done":
+          if (ev.item.type === "function_call") {
+            const r = await runTool(ev.item.name, JSON.parse(ev.item.arguments));
+            state.chatHistory.push(ev.item, {
+              type:"function_call_output", call_id: ev.item.call_id,
+              output: JSON.stringify(r),
+            });
+          } break;
+      }
+    }
+    if (!hadTool) { state.chatHistory.push({ role:"assistant", content: text }); break; }
+  }
+  res.end();
+});</code></pre>
+      </div>
+
+      <div class="col sdk">
+        <h4>AI SDK v6 等价实现<span class="pill">~15 行</span></h4>
+<pre><code>import { streamText, convertToModelMessages, tool } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
+
+app.post("/api/chat", async (req, res) =&gt; {
+  const result = streamText({
+    model: openai("gpt-5.4-nano"),
+    messages: convertToModelMessages(req.body.messages),
+    tools: {
+      get_weather: tool({
+        description: "Get weather for a city",
+        inputSchema: z.object({ city: z.string() }),
+        execute: async ({ city }) =&gt; mockWeather(city),
+      }),
+    },
+    stopWhen: stepCountIs(8),   // agent loop 由 SDK 托管
+  });
+
+  // UI Message Stream Protocol（SSE 之上的标准化层）
+  result.toUIMessageStreamResponse().pipe(res);
+});</code></pre>
+      </div>
+    </div>
+
+    <h3>② 前端：订阅流式聊天</h3>
+    <div class="split">
+      <div class="col native">
+        <h4>本课的 <code>useStreamingChat</code><span class="pill">~150 行</span></h4>
+<pre><code>// 你自己写：
+// - fetch() + AbortController
+// - reader = resp.body.getReader()
+// - decoder = new TextDecoder("utf-8")
+// - buf += decoder.decode(value, { stream: true })
+// - buf.split("\n\n") 切帧
+// - 按 event: xxx 解析 + setMessages
+// - 占位 assistant 消息 + 状态机
+// - 智能自动滚动 + 错误/重试 + abort
+
+const { value, done } = await reader.read();
+buf += decoder.decode(value, { stream: true });
+const frames = buf.split("\n\n");
+buf = frames.pop()!;
+for (const f of frames) dispatch(parseFrame(f));</code></pre>
+      </div>
+
+      <div class="col sdk">
+        <h4>AI SDK v6 的 <code>useChat</code><span class="pill">1 个 hook</span></h4>
+<pre><code>import { useChat } from "@ai-sdk/react";
+
+const {
+  messages,              // UIMessage[] —— 全类型安全
+  sendMessage,           // 发送
+  status,                // "ready" | "streaming" | ...
+  stop,                  // AbortController 已内置
+  error,
+  regenerate,            // retry 已内置
+} = useChat({
+  transport: new DefaultChatTransport({
+    api: "/api/chat",
+    credentials: "include",
+  }),
+});
+
+// 渲染：
+// messages.map(m =&gt; m.parts.map(p =&gt; ...))
+// parts 里有 text / tool-call / tool-result / reasoning ...</code></pre>
+      </div>
+    </div>
+
+    <h3>③ 谁帮你做了什么 —— 对比表</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>能力</th>
+          <th>本课原生</th>
+          <th>AI SDK v6</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>SSE headers + flushHeaders</td><td>手写</td><td class="yes">内置</td></tr>
+        <tr><td>ReadableStream + TextDecoder 拼帧</td><td>手写（~30 行）</td><td class="yes">内置（UI Message Stream Protocol）</td></tr>
+        <tr><td>AbortController 传播（client ↔ server）</td><td>手写</td><td class="yes">内置</td></tr>
+        <tr><td>Responses API 语义事件分发（text/tool）</td><td>手写 switch 6 个 type</td><td class="yes">SDK 抽象掉了</td></tr>
+        <tr><td>Agent loop（tool call → exec → 再调一次）</td><td>手写 while 循环</td><td class="yes">内置 stopWhen / ToolLoopAgent</td></tr>
+        <tr><td>多 provider（OpenAI / Anthropic / Gemini）</td><td class="no">仅 OpenAI</td><td class="yes">25+ provider，换 2 行代码</td></tr>
+        <tr><td>UIMessage / ModelMessage 类型安全</td><td class="no">自己定义 types</td><td class="yes">端到端 typed</td></tr>
+        <tr><td>AI Elements（预制 React 组件）</td><td class="no">自己写 UI</td><td class="yes">MessageList/Composer/Reasoning</td></tr>
+        <tr><td>结构化输出 + 工具调用组合</td><td>可做</td><td class="yes">内置 stable structured outputs</td></tr>
+        <tr><td>DevTools（流事件可视化）</td><td class="no">没有</td><td class="yes">v6 新增</td></tr>
+        <tr><td>对底层机制的理解</td><td class="yes">强制理解每一层</td><td class="no">容易"黑盒"</td></tr>
+      </tbody>
+    </table>
+
+    <h3>④ 什么时候该用哪个？</h3>
+    <table>
+      <thead>
+        <tr><th>场景</th><th>推荐</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>教学/学习 / 面试准备 / 想深入理解 LLM 流式原理</td><td class="yes">原生（本课）</td></tr>
+        <tr><td>Node.js 后端 + 非 Next.js 前端 + 一个 provider 够用</td><td>都行</td></tr>
+        <tr><td>Next.js + 多 provider + 想快速上 production</td><td class="yes">AI SDK v6</td></tr>
+        <tr><td>特殊流协议需求（需要自己控制 wire format、对接非 HTTP 传输等）</td><td class="yes">原生</td></tr>
+        <tr><td>需要 UIMessage 持久化/同步到 DB（跨设备聊天）</td><td class="yes">AI SDK v6（UIMessage 就是为此设计）</td></tr>
+      </tbody>
+    </table>
+
+    <div class="takeaway">
+      <b>💡 一句话总结本课的价值：</b>
+      <p style="margin:8px 0 0">
+        你现在知道 <code>useChat</code> 是怎么"变"出来的——<b>fetch streaming + TextDecoder + SSE 帧切分 + Responses 语义事件 switch + agent while 循环</b>。
+      </p>
+      <p style="margin:8px 0 0">
+        以后用 AI SDK 时，报错你能看懂；性能问题你能定位；特殊需求你能自己补一层。
+      </p>
+      <p style="margin:8px 0 0">
+        <b>先懂底层，再用抽象</b>——这才是工程师的 leverage。
+      </p>
+    </div>
+  </body>
+</html>
