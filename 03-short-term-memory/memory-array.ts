@@ -18,11 +18,15 @@
 
 import "dotenv/config";
 import OpenAI from "openai";
+import type { EasyInputMessage } from "openai/resources/responses/responses";
 
 const client = new OpenAI();
 
 // history 的类型就是 Responses API 接受的 input item 数组
-type HistoryItem = { role: "user" | "assistant" | "developer"; content: string };
+type HistoryItem = {
+  role: "user" | "assistant" | "developer";
+  content: string;
+};
 
 async function ask(history: HistoryItem[], userMessage: string) {
   // 1. 把用户的新一轮话塞进历史
@@ -62,7 +66,10 @@ async function main() {
   // 关键测试：问它 "我刚才说的第一句是什么？"
   // 如果它答得出 "Knock knock."，说明短期记忆生效了。
   console.log("User:", "What was the very first thing I said?");
-  console.log("AI:  ", await ask(history, "What was the very first thing I said?"));
+  console.log(
+    "AI:  ",
+    await ask(history, "What was the very first thing I said?"),
+  );
   console.log();
 
   console.log("--- Final history length:", history.length, "items ---");
@@ -72,3 +79,69 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+type ChatArgs = {
+  history: EasyInputMessage[];
+  query: string;
+};
+
+async function chat(args: ChatArgs): Promise<EasyInputMessage[]> {
+  const systemPrompt: string = "You are a helpful assistant";
+  const harmfulContentDetectedMessage: EasyInputMessage = {
+    role: "assistant",
+    content: "Your question contains harmful content. We cannot process that.",
+  };
+
+  const userMessage: EasyInputMessage = {
+    role: "user",
+    content: args.query,
+  };
+
+  // 1. detect if query contains harmful content
+  if (args.query.includes("❌")) {
+    return [...args.history, userMessage, harmfulContentDetectedMessage];
+  }
+
+  args.history.push(userMessage);
+
+  const response = await client.responses.create({
+    model: "gpt-5.4-nano",
+    instructions: systemPrompt,
+    input: args.history,
+  });
+
+  // response does not have a typical message structure (role and content). Must rewrite it to a proper message before append to the history
+  const assistantMessage: EasyInputMessage = {
+    role: "assistant",
+    content: response.output_text,
+  };
+
+  args.history.push(assistantMessage);
+
+  return [...args.history];
+}
+
+async function test() {
+  const chatHistory: EasyInputMessage[] = [];
+
+  const step1History = await chat({
+    history: chatHistory,
+    query: "my name is John",
+  });
+
+  const step2History = await chat({
+    history: step1History,
+    query: "what is my name",
+  });
+
+  console.log(step2History);
+
+  const step3History = await chat({
+    history: step2History,
+    query: "Can you do ❌?",
+  });
+
+  console.log(step3History);
+}
+
+test();
