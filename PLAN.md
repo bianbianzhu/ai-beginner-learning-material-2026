@@ -89,6 +89,14 @@ ai-in-2026/
 | 11 | CLI 多轮对话 | **写一个像 ChatGPT 的命令行** | `readline/promises` + 内存数组 |
 | 12 | CLI Agent | **命令行里的 ReAct agent** | CLI + tool loop + 工具函数 |
 | 13 | Express Stateful | **每个用户一个 session** | `sessionId` (cookie) + `Map<sid, history>` |
+| 14 | Streaming Chat | **流式响应 + React 前端 + 流式工具调用** | SSE + `AbortController` + 流式事件解析 |
+| 15 | `previous_response_id` | **服务端自动拼历史** | `store: true` + `previous_response_id` |
+| 16 | Conversations API | **持久化对话对象（无 TTL）** | `client.conversations.create()` + `conversation: id` |
+| 17 | Truncation | **超窗口兜底（硬截断）** | `truncation: "auto"` |
+| 18 | Compaction | **上下文智能压缩** | `context_management` + `/responses/compact` |
+| 19 | DB-backed Conversations | **自建持久化（SQLite + Drizzle）** | 本地 DB 存 OpenAI 原生 item JSON |
+| 20 | Agents SDK Sessions | **SDK 抽象层** | `@openai/agents` MemorySession / ConversationsSession / CompactionSession |
+| 21 | 策略总览 | **六种策略对比 + 选型决策树** | 概念课 |
 
 ---
 

@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>Lesson 22 · RAG 流水线可视化</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        --c-doc: #a78bfa;         /* 原文档 */
+        --c-chunk: #60a5fa;       /* 切分后的 chunk */
+        --c-embed: #34d399;       /* 向量 */
+        --c-store: #f59e0b;       /* vector store */
+        --c-question: #fb923c;    /* 用户问题 */
+        --c-retrieve: #f472b6;    /* 检索 */
+        --c-context: #facc15;     /* 拼接 context */
+        --c-answer: #ef4444;      /* 最终答案 */
+      }
+      * { box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        margin: 0;
+        background: #0f172a;
+        color: #e2e8f0;
+        padding: 32px;
+        line-height: 1.5;
+      }
+      h1 { margin-top: 0; }
+      h2 { color: #cbd5e1; margin-top: 40px; border-bottom: 1px solid #334155; padding-bottom: 8px; }
+      h3 { margin-top: 32px; color: #cbd5e1; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      code { background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 13px; color: #fde68a; }
+
+      .pipeline {
+        background: #020617;
+        border: 2px dashed #334155;
+        border-radius: 8px;
+        padding: 24px;
+        margin: 16px 0 32px;
+      }
+      .stages {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .stage {
+        flex: 1 1 130px;
+        min-width: 130px;
+        padding: 16px 12px;
+        border-radius: 8px;
+        text-align: center;
+        color: #0f172a;
+        font-weight: 600;
+        font-size: 14px;
+        position: relative;
+      }
+      .stage small {
+        display: block;
+        font-weight: 400;
+        font-size: 11px;
+        margin-top: 4px;
+        opacity: 0.75;
+      }
+      .arrow {
+        color: #475569;
+        font-size: 20px;
+        user-select: none;
+      }
+
+      .s-doc      { background: var(--c-doc); }
+      .s-chunk    { background: var(--c-chunk); }
+      .s-embed    { background: var(--c-embed); }
+      .s-store    { background: var(--c-store); }
+      .s-question { background: var(--c-question); }
+      .s-retrieve { background: var(--c-retrieve); color: #fff; }
+      .s-context  { background: var(--c-context); }
+      .s-answer   { background: var(--c-answer); color: #fff; }
+
+      .legend {
+        display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0 24px;
+      }
+      .legend-item { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+      .swatch { width: 14px; height: 14px; border-radius: 3px; }
+
+      .takeaway {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-left: 4px solid #facc15;
+        border-radius: 6px;
+        margin-top: 32px;
+      }
+      .takeaway h3 { margin-top: 0; }
+
+      table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+      th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #334155; font-size: 14px; }
+      th { color: #94a3b8; font-weight: 600; }
+
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+      @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+      .col-card {
+        background: #1e293b;
+        padding: 16px 20px;
+        border-radius: 8px;
+      }
+      .col-card h4 { margin-top: 0; color: #f8fafc; }
+      .col-card ul { margin: 8px 0; padding-left: 20px; }
+      .col-card li { margin: 4px 0; font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <h1>🔎 Lesson 22 · RAG 到底在做什么？</h1>
+    <p class="muted">
+      RAG = Retrieval-Augmented Generation（检索增强生成）。
+      一句话：<strong>先查资料，再回答问题</strong>。
+    </p>
+
+    <h2>两条流水线，离线 + 在线</h2>
+
+    <h3>① Ingest Pipeline（离线做，只做一次）</h3>
+    <div class="pipeline">
+      <div class="stages">
+        <div class="stage s-doc">
+          Document
+          <small>PDF / MD / HTML</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-chunk">
+          Chunker
+          <small>800 tokens / 400 overlap</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-embed">
+          Embedder
+          <small>text-embedding-3-small</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-store">
+          Vector Store
+          <small>索引好的向量 + 原文</small>
+        </div>
+      </div>
+    </div>
+
+    <h3>② Query Pipeline（每次用户提问都跑）</h3>
+    <div class="pipeline">
+      <div class="stages">
+        <div class="stage s-question">
+          Question
+          <small>"配送几次？"</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-embed">
+          Embedder
+          <small>同一个模型!</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-retrieve">
+          Retrieve Top-K
+          <small>cosine 相似度</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-context">
+          Context + Prompt
+          <small>拼进 instructions</small>
+        </div>
+        <span class="arrow">→</span>
+        <div class="stage s-answer">
+          LLM → Answer
+          <small>+ citations</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-item"><span class="swatch" style="background:var(--c-doc)"></span> 原文档</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-chunk)"></span> Chunk</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-embed)"></span> Embedding</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-store)"></span> Vector Store</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-question)"></span> 用户问题</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-retrieve)"></span> 检索</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-context)"></span> 拼 Context</div>
+      <div class="legend-item"><span class="swatch" style="background:var(--c-answer)"></span> 最终答案</div>
+    </div>
+
+    <h2>2026 的 OpenAI 把这一切封装到了什么地方？</h2>
+
+    <table>
+      <tr>
+        <th>流水线环节</th>
+        <th>你自己写</th>
+        <th>OpenAI 托管</th>
+      </tr>
+      <tr>
+        <td>Chunker</td>
+        <td><code>str.split("\n\n")</code> 之类</td>
+        <td>Vector Store 自动切（默认 800/400）</td>
+      </tr>
+      <tr>
+        <td>Embedder</td>
+        <td><code>client.embeddings.create</code></td>
+        <td>同上，由 Vector Store 自动调用</td>
+      </tr>
+      <tr>
+        <td>Storage + ANN</td>
+        <td>内存数组 / SQLite / pgvector</td>
+        <td><code>client.vectorStores.*</code>（前 1 GB 免费）</td>
+      </tr>
+      <tr>
+        <td>Retriever</td>
+        <td><code>cosine + sort + slice(0, k)</code></td>
+        <td><code>client.vectorStores.search(...)</code></td>
+      </tr>
+      <tr>
+        <td>LLM 合成答案</td>
+        <td>自己拼 prompt 调 Responses API</td>
+        <td><code>tools: [{ type: "file_search" }]</code> 一行搞定</td>
+      </tr>
+    </table>
+
+    <h2>两种方案，各自什么时候用？</h2>
+
+    <div class="two-col">
+      <div class="col-card">
+        <h4>🧠 Memory 版（第 24 课）</h4>
+        <ul>
+          <li>✅ 零依赖，进程内数组</li>
+          <li>✅ 本地调试方便，可以打印每一步</li>
+          <li>✅ 隐私好（不上云）</li>
+          <li>❌ 进程重启数据就没了</li>
+          <li>❌ 文件多了索引要跑很久</li>
+        </ul>
+        <p class="muted">适合：&lt;100 文档的 demo、单机工具、学习概念。</p>
+      </div>
+      <div class="col-card">
+        <h4>☁️ OpenAI Vector Store 版（第 25–27 课）</h4>
+        <ul>
+          <li>✅ 零运维，OpenAI 负责分块 / 索引 / 检索</li>
+          <li>✅ 前 1 GB 存储免费</li>
+          <li>✅ 支持 metadata 过滤、query 改写、ranking 调优</li>
+          <li>✅ 可以直接接 <code>file_search</code> tool，让 LLM 自己去查</li>
+          <li>❌ 数据要上云（合规/隐私需要确认）</li>
+        </ul>
+        <p class="muted">适合：真实产品、多机部署、需要大规模检索。</p>
+      </div>
+    </div>
+
+    <h2>RAG 真正的坑在哪里？</h2>
+    <div class="takeaway">
+      <h3>📌 记住这 3 件事</h3>
+      <ul>
+        <li><strong>ingest 和 query 必须用同一个 embedding 模型</strong>，否则两边向量空间对不上，检索全是噪声。</li>
+        <li><strong>Top-K 不是越大越好</strong>。K=3 常常优于 K=10。多余的 chunk 会稀释相关信号，也浪费 token。</li>
+        <li><strong>接 API 是最简单的一步</strong>。真正难的是：文档怎么切、怎么清洗、怎么评估检索质量、什么问题该拒绝。</li>
+      </ul>
+    </div>
+
+    <p class="muted" style="margin-top: 40px;">
+      👉 下一课：<code>23-embeddings</code>——亲手把一段话变成一个 1536 维的向量，并算两句话的相似度。
+    </p>
+  </body>
+</html>

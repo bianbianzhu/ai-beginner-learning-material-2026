@@ -29,3 +29,9 @@ yarn-debug.log*
 # --- runtime ---
 coverage/
 .nyc_output/
+
+# --- lesson 19 local SQLite DB ---
+19-db-conversations/*.db
+19-db-conversations/*.db-journal
+19-db-conversations/*.db-wal
+19-db-conversations/*.db-shm

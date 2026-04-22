@@ -15,6 +15,7 @@
 
 import "dotenv/config";
 import OpenAI from "openai";
+import type { Response } from "openai/resources/responses/responses";
 import * as readline from "node:readline/promises";
 
 const client = new OpenAI();
@@ -32,8 +33,19 @@ async function main() {
   // 核心：只需要一个变量来追踪上一次响应的 ID
   let previousResponseId: string | null = null;
 
-  while (true) {
-    const userInput = await rl.question("You: ");
+  // 读到 EOF（Ctrl-D 或 stdin pipe 结束）时设 closed，让主循环自然退出
+  let closed = false;
+  rl.once("close", () => {
+    closed = true;
+  });
+
+  while (!closed) {
+    let userInput: string;
+    try {
+      userInput = await rl.question("You: ");
+    } catch {
+      break; // readline 已关闭
+    }
 
     if (userInput.trim() === "/exit") {
       console.log("Bye!");
@@ -55,11 +67,11 @@ async function main() {
     if (!userInput.trim()) continue;
 
     // ── 核心调用：只需 previous_response_id + 新消息 ──
-    const response = await client.responses.create({
+    const response: Response = await client.responses.create({
       model: MODEL,
       input: [{ role: "user", content: userInput }],
       store: true, // 必须为 true，否则服务端不会保存响应
-      ...(previousResponseId && { previous_response_id: previousResponseId }),
+      previous_response_id: previousResponseId, // null 表示第一轮，OpenAI 接受 null
     });
 
     console.log(`AI: ${response.output_text}`);

@@ -35,6 +35,19 @@ cp .env.example .env
 | 12 | CLI Agent（完整 ReAct loop + 工具） | `pnpm l12` |
 | 13 | Express 有状态 API（sessionId + cookie） | `pnpm l13` |
 | 14 | **Streaming Chat**（Vite+React 前端 + SSE + 流式 tool calling） | `pnpm l14:server` + `pnpm l14:web` |
+| 15 | `previous_response_id` 服务端对话链 | `pnpm l15:demo` / `pnpm l15` |
+| 16 | Conversations API（持久化对话，无 TTL） | `pnpm l16` |
+| 17 | Truncation（自动截断安全网） | `pnpm l17` |
+| 18 | Compaction（上下文智能压缩） | `pnpm l18:manual` / `pnpm l18:auto` |
+| 19 | DB-backed Conversations（SQLite + Drizzle） | `pnpm l19` |
+| 20 | Agents SDK Sessions（Memory / Conversations / Compaction） | `pnpm l20:memory` / `pnpm l20:conv` / `pnpm l20:compact` |
+| 21 | **上下文策略总览与对比**（概念课） | `21-context-strategies-overview/README.md` |
+| 22 | **RAG 概念**可视化（Ingest + Query 两条流水线） | 浏览器打开 `22-rag-concept/rag-flow.html` |
+| 23 | Embeddings 基础（文字 → 向量 + 相似度） | `pnpm l23` / `pnpm l23:sim` |
+| 24 | **Memory RAG**：手写最小可跑版（100 行内） | `pnpm l24` |
+| 25 | **OpenAI Vector Store**（托管云向量库，前 1 GB 免费） | `pnpm l25:create` → `pnpm l25:query` |
+| 26 | `file_search` hosted tool（一行 tool，LLM 自动 RAG） | `pnpm l26` |
+| 27 | **RAG Express API**（把 file_search 包成 HTTP 服务 + 引用） | `pnpm l27` |
 
 ## 学习路径
 
