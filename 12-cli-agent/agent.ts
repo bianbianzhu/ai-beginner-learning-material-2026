@@ -59,7 +59,12 @@ const tools: OpenAI.Responses.FunctionTool[] = [
     type: "function",
     name: "get_time",
     description: "Get the current UTC time in ISO 8601 format.",
-    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+    parameters: {
+      type: "object",
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    },
     strict: true,
   },
   {
@@ -77,10 +82,16 @@ const tools: OpenAI.Responses.FunctionTool[] = [
   {
     type: "function",
     name: "search_notes",
-    description: "Case-insensitive keyword search over the user's personal notes.",
+    description:
+      "Case-insensitive keyword search over the user's personal notes.",
     parameters: {
       type: "object",
-      properties: { query: { type: "string", description: "a single keyword or short phrase" } },
+      properties: {
+        query: {
+          type: "string",
+          description: "a single keyword or short phrase",
+        },
+      },
       required: ["query"],
       additionalProperties: false,
     },
@@ -109,10 +120,11 @@ async function runAgent(history: OpenAI.Responses.ResponseInput) {
     // 把本轮 AI 产生的所有 output（可能是文本，可能是工具调用）原样加入历史
     // 类型断言：resp.output 是 ResponseOutputItem[]，它是 ResponseInputItem 的一个超集；
     // 教学中我们只会产生 message / function_call，都是安全子集。
-    history.push(...(resp.output as unknown as OpenAI.Responses.ResponseInputItem[]));
+    history.push(...(resp.output as OpenAI.Responses.ResponseInputItem[]));
 
     const toolCalls = resp.output.filter(
-      (item): item is OpenAI.Responses.ResponseFunctionToolCall => item.type === "function_call"
+      (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
+        item.type === "function_call",
     );
 
     // 没有工具调用 → 循环结束，返回最终文本
@@ -137,18 +149,24 @@ async function runAgent(history: OpenAI.Responses.ResponseInput) {
     }
   }
 
-  throw new Error(`Agent exceeded ${MAX_STEPS} reasoning steps without answering.`);
+  throw new Error(
+    `Agent exceeded ${MAX_STEPS} reasoning steps without answering.`,
+  );
 }
 
 // =========================== CLI Shell ============================
 async function main() {
   const rl = readline.createInterface({ input, output });
   let closed = false;
-  rl.on("close", () => { closed = true; });
+  rl.on("close", () => {
+    closed = true;
+  });
 
   const history: OpenAI.Responses.ResponseInput = [];
 
-  console.log("🤖 CLI Agent ready. Tools available: get_time, add, search_notes.");
+  console.log(
+    "🤖 CLI Agent ready. Tools available: get_time, add, search_notes.",
+  );
   console.log("   Type '/exit' to quit, '/reset' to clear history.\n");
 
   while (!closed) {
@@ -173,7 +191,9 @@ async function main() {
 
     try {
       const { text, steps } = await runAgent(history);
-      console.log(`ai  > ${text}   (took ${steps} step${steps > 1 ? "s" : ""})\n`);
+      console.log(
+        `ai  > ${text}   (took ${steps} step${steps > 1 ? "s" : ""})\n`,
+      );
     } catch (err) {
       console.error("[agent error]", err);
     }

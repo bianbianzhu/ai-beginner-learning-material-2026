@@ -20,7 +20,10 @@ import { stdin as input, stdout as output } from "node:process";
 
 const client = new OpenAI();
 
-type HistoryItem = { role: "user" | "assistant" | "developer"; content: string };
+type HistoryItem = {
+  role: "user" | "assistant" | "developer";
+  content: string;
+};
 
 const INSTRUCTIONS = `
 You are a friendly CLI coding buddy.
@@ -31,14 +34,18 @@ If asked to write code, always wrap it in a fenced code block with the language 
 async function main() {
   const rl = readline.createInterface({ input, output });
   let closed = false;
-  rl.on("close", () => { closed = true; });
+  rl.on("close", () => {
+    closed = true;
+  });
 
   const history: HistoryItem[] = [{ role: "developer", content: INSTRUCTIONS }];
 
   let totalInTokens = 0;
   let totalOutTokens = 0;
 
-  console.log("🟢 CLI chat started. Type '/exit' to quit, '/reset' to clear, '/tokens' for usage.\n");
+  console.log(
+    "🟢 CLI chat started. Type '/exit' to quit, '/reset' to clear, '/tokens' for usage.\n",
+  );
 
   while (!closed) {
     let userText: string;
@@ -62,9 +69,10 @@ async function main() {
     }
     if (userText === "/tokens") {
       // gpt-5.4-nano pricing: $0.10 / 1M input, $0.625 / 1M output
-      const costUsd = (totalInTokens * 0.1 + totalOutTokens * 0.625) / 1_000_000;
+      const costUsd =
+        (totalInTokens * 0.1 + totalOutTokens * 0.625) / 1_000_000;
       console.log(
-        `📊 total tokens — in: ${totalInTokens}, out: ${totalOutTokens}  (≈ $${costUsd.toFixed(6)})\n`
+        `📊 total tokens — in: ${totalInTokens}, out: ${totalOutTokens}  (≈ $${costUsd.toFixed(6)})\n`,
       );
       continue;
     }
