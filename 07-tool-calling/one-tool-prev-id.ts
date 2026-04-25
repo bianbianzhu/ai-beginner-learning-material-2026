@@ -1,20 +1,22 @@
 /**
- * Lesson 7 · Tool Calling（单轮工具调用）
+ * Lesson 7 · Tool Calling（写法 B：previous_response_id）
  * -----------------------------------------------------------
- * 目标：让 AI 发现"我不知道/我做不了"，**主动调用你定义的函数**。
+ * 与 `one-tool.ts` 同一个例子，但 Turn 2 改用 **previous_response_id**：
  *
- * 流程：
- *   (1) 第一次请求  → 告诉 AI 你有哪些工具
- *   (2) AI 决定调工具 → 返回 `{ type: "function_call", call_id, name, arguments }`
- *   (3) 你本地执行工具 → 拿到结果
- *   (4) 把结果作为 `function_call_output` 回传 → AI 组装最终答案
+ *   one-tool.ts          ：手动拼 [user, ...turn1.output, ...toolOutputs]
+ *   one-tool-prev-id.ts  ：服务端帮你接历史，只需传 toolOutputs
  *
- * 2026 关键点：
- *   - tool 定义：`{ type: "function", name, description, parameters, strict: true }`
- *   - 最佳实践：**严格模式** strict=true + additionalProperties=false + 所有字段 required
- *   - 本课只展示**一轮**调用；Lesson 12 会把它扩展成完整 loop
+ * 为什么推荐这种写法（reasoning 模型尤其推荐）：
+ *   1. 代码更短：不用自己维护 history 数组
+ *   2. reasoning items 自动保留：手动拼 input 时如果漏了 reasoning item，
+ *      会损失工具调用准确率（OpenAI cookbook 在 SWE-bench 上测过 ~3%）
+ *   3. 默认 store=true：响应被服务端保留 30 天，previous_response_id 才有效
  *
- * 运行：pnpm l7
+ * 何时不能用：
+ *   - Zero Data Retention (ZDR) 流量：必须 store=false → 用写法 A 手动拼
+ *   - 想完全无状态、自己持久化历史 → 用写法 A
+ *
+ * 运行：pnpm l7:prev-id
  */
 
 import "dotenv/config";
@@ -22,9 +24,8 @@ import OpenAI from "openai";
 
 const client = new OpenAI();
 
-// ---------- 1. 定义一个本地"假"工具 ----------
+// ---------- 1. 本地"假"工具 ----------
 function getWeather(city: string): { city: string; tempC: number; sky: string } {
-  // 真实场景下这里会调天气 API；教学就写死
   const db: Record<string, { tempC: number; sky: string }> = {
     tokyo: { tempC: 18, sky: "clear" },
     beijing: { tempC: 12, sky: "smoggy" },
@@ -34,7 +35,7 @@ function getWeather(city: string): { city: string; tempC: number; sky: string } 
   return { city, ...(db[key] ?? { tempC: 20, sky: "unknown" }) };
 }
 
-// ---------- 2. 把工具描述给 AI ----------
+// ---------- 2. 工具描述 ----------
 const tools = [
   {
     type: "function" as const,
@@ -56,21 +57,22 @@ const tools = [
 ];
 
 async function main() {
-  // ---------- 3. 第一次请求：提问 + 传工具 ----------
+  // ---------- 3. Turn 1：提问 + 传工具 ----------
   console.log(">>> Turn 1: ask AI 'weather in Tokyo?'\n");
-
-  const userPrompt = "What's the weather in Tokyo right now?";
 
   const turn1 = await client.responses.create({
     model: "gpt-5.4-nano",
-    input: userPrompt,
+    input: "What's the weather in Tokyo right now?",
     tools,
+    // store: true 是默认值；显式写出来强调 previous_response_id 依赖它
+    store: true,
   });
 
+  console.log("turn1.id:", turn1.id);
   console.log("turn1.output:");
   console.log(JSON.stringify(turn1.output, null, 2));
 
-  // ---------- 4. 扫描 output[]，找 function_call ----------
+  // ---------- 4. 找 function_call ----------
   const toolCalls = turn1.output.filter((item) => item.type === "function_call");
 
   if (toolCalls.length === 0) {
@@ -79,7 +81,7 @@ async function main() {
     return;
   }
 
-  // ---------- 5. 在本地执行每一个工具调用 ----------
+  // ---------- 5. 本地执行 ----------
   const toolOutputs: { type: "function_call_output"; call_id: string; output: string }[] = [];
 
   for (const call of toolCalls) {
@@ -96,33 +98,22 @@ async function main() {
 
     console.log("    local result:", result);
 
-    // function_call_output 必须回传和 call_id 对应
     toolOutputs.push({
       type: "function_call_output",
       call_id: call.call_id,
-      output: JSON.stringify(result), // output 必须是字符串
+      output: JSON.stringify(result),
     });
   }
 
-  // ---------- 6. 第二次请求：把完整历史再发一遍 ----------
-  console.log("\n>>> Turn 2: send tool results back to AI\n");
+  // ---------- 6. Turn 2：只传 toolOutputs，历史靠 previous_response_id ----------
+  console.log("\n>>> Turn 2: send tool results back via previous_response_id\n");
 
-  // 官方推荐：Turn 2 的 input 应包含**完整对话历史**：
-  //   ① 原始 user prompt（不能省 —— prompt 里的语气、约束、附加要求只在这里）
-  //   ② Turn 1 AI 返回的所有 output（function_call、reasoning 等，原样回传）
-  //   ③ 我们本地执行得到的 function_call_output
-  //
-  // 注：另一种等价写法是用 previous_response_id 让服务端帮你接历史，
-  //     这样只需传 toolOutputs 即可（见 Lesson 12 / Lesson 15-18）。
-  const nextInput = [
-    { role: "user" as const, content: userPrompt },
-    ...turn1.output,
-    ...toolOutputs,
-  ];
-
+  // 对比写法 A：input 里**只有** toolOutputs，没有 user prompt、没有 turn1.output
+  // 服务端会按 previous_response_id 自动拼上完整历史（含 reasoning items）
   const turn2 = await client.responses.create({
     model: "gpt-5.4-nano",
-    input: nextInput as OpenAI.Responses.ResponseInput,
+    previous_response_id: turn1.id,
+    input: toolOutputs as OpenAI.Responses.ResponseInput,
     tools,
   });
 

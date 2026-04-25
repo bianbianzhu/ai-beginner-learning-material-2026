@@ -15,6 +15,7 @@
     "l4": "tsx 04-response-anatomy/anatomy.ts",
     "l6": "tsx 06-structured-output/structured.ts",
     "l7": "tsx 07-tool-calling/one-tool.ts",
+    "l7:prev-id": "tsx 07-tool-calling/one-tool-prev-id.ts",
     "l10": "tsx 10-express-summarize/server.ts",
     "l11": "tsx 11-cli-chat/chat.ts",
     "l12": "tsx 12-cli-agent/agent.ts",
