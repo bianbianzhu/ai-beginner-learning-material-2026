@@ -82,10 +82,10 @@ app.use(cookieParser());
 
 const COOKIE_NAME = "session_id";
 const COOKIE_OPTIONS = {
-  httpOnly: true,               // JS 读不到，防 XSS
-  sameSite: "lax" as const,     // 基础 CSRF 防护
+  httpOnly: true, // JS 读不到，防 XSS
+  sameSite: "lax" as const, // 基础 CSRF 防护
   secure: process.env.NODE_ENV === "production", // 生产必须 HTTPS
-  maxAge: 1000 * 60 * 60 * 24,  // 24h
+  maxAge: 1000 * 60 * 60 * 24, // 24h
   path: "/",
 };
 
@@ -122,10 +122,14 @@ app.get("/healthz", (_req, res) => {
 app.post("/api/chat", async (req, res) => {
   const { message } = req.body ?? {};
   if (typeof message !== "string" || message.trim().length === 0) {
-    return res.status(400).json({ ok: false, error: "field `message` is required" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "field `message` is required" });
   }
   if (message.length > 4000) {
-    return res.status(400).json({ ok: false, error: "message too long (max 4000 chars)" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "message too long (max 4000 chars)" });
   }
 
   const state = req.sessionState!;
@@ -162,14 +166,24 @@ app.post("/api/chat/reset", (req, res) => {
 
 // 仅供教学/调试 —— 看看服务端到底存了啥
 app.get("/api/chat/debug", (req, res) => {
-  res.json({ ok: true, data: { sessionId: req.sessionId, state: req.sessionState } });
+  res.json({
+    ok: true,
+    data: { sessionId: req.sessionId, state: req.sessionState },
+  });
 });
 
 // ==================== Error handler ====================
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[server error]", err);
-  res.status(500).json({ ok: false, error: err.message || "internal error" });
-});
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    console.error("[server error]", err);
+    res.status(500).json({ ok: false, error: err.message || "internal error" });
+  },
+);
 
 const PORT = Number(process.env.PORT ?? 3000);
 app.listen(PORT, () => {
