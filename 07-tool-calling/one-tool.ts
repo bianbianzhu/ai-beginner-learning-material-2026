@@ -23,7 +23,11 @@ import OpenAI from "openai";
 const client = new OpenAI();
 
 // ---------- 1. 定义一个本地"假"工具 ----------
-function getWeather(city: string): { city: string; tempC: number; sky: string } {
+function getWeather(city: string): {
+  city: string;
+  tempC: number;
+  sky: string;
+} {
   // 真实场景下这里会调天气 API；教学就写死
   const db: Record<string, { tempC: number; sky: string }> = {
     tokyo: { tempC: 18, sky: "clear" },
@@ -59,7 +63,7 @@ async function main() {
   // ---------- 3. 第一次请求：提问 + 传工具 ----------
   console.log(">>> Turn 1: ask AI 'weather in Tokyo?'\n");
 
-  const userPrompt = "What's the weather in Tokyo right now?";
+  const userPrompt = "What's the weather in Tokyo and Sydney right now?";
 
   const turn1 = await client.responses.create({
     model: "gpt-5.4-nano",
@@ -71,7 +75,9 @@ async function main() {
   console.log(JSON.stringify(turn1.output, null, 2));
 
   // ---------- 4. 扫描 output[]，找 function_call ----------
-  const toolCalls = turn1.output.filter((item) => item.type === "function_call");
+  const toolCalls = turn1.output.filter(
+    (item) => item.type === "function_call",
+  );
 
   if (toolCalls.length === 0) {
     console.log("\nAI did not call any tool. Final answer:");
@@ -80,7 +86,11 @@ async function main() {
   }
 
   // ---------- 5. 在本地执行每一个工具调用 ----------
-  const toolOutputs: { type: "function_call_output"; call_id: string; output: string }[] = [];
+  const toolOutputs: {
+    type: "function_call_output";
+    call_id: string;
+    output: string;
+  }[] = [];
 
   for (const call of toolCalls) {
     console.log(`\n>>> AI wants to call: ${call.name}(${call.arguments})`);

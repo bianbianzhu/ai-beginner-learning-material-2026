@@ -25,7 +25,11 @@ import OpenAI from "openai";
 const client = new OpenAI();
 
 // ---------- 1. 本地"假"工具 ----------
-function getWeather(city: string): { city: string; tempC: number; sky: string } {
+function getWeather(city: string): {
+  city: string;
+  tempC: number;
+  sky: string;
+} {
   const db: Record<string, { tempC: number; sky: string }> = {
     tokyo: { tempC: 18, sky: "clear" },
     beijing: { tempC: 12, sky: "smoggy" },
@@ -62,7 +66,8 @@ async function main() {
 
   const turn1 = await client.responses.create({
     model: "gpt-5.4-nano",
-    input: "What's the weather in Tokyo right now?",
+    input:
+      "What's the weather in Tokyo right now? and reply it like you are 鲁迅",
     tools,
     // store: true 是默认值；显式写出来强调 previous_response_id 依赖它
     store: true,
@@ -73,7 +78,9 @@ async function main() {
   console.log(JSON.stringify(turn1.output, null, 2));
 
   // ---------- 4. 找 function_call ----------
-  const toolCalls = turn1.output.filter((item) => item.type === "function_call");
+  const toolCalls = turn1.output.filter(
+    (item) => item.type === "function_call",
+  );
 
   if (toolCalls.length === 0) {
     console.log("\nAI did not call any tool. Final answer:");
@@ -82,7 +89,11 @@ async function main() {
   }
 
   // ---------- 5. 本地执行 ----------
-  const toolOutputs: { type: "function_call_output"; call_id: string; output: string }[] = [];
+  const toolOutputs: {
+    type: "function_call_output";
+    call_id: string;
+    output: string;
+  }[] = [];
 
   for (const call of toolCalls) {
     console.log(`\n>>> AI wants to call: ${call.name}(${call.arguments})`);
@@ -106,7 +117,9 @@ async function main() {
   }
 
   // ---------- 6. Turn 2：只传 toolOutputs，历史靠 previous_response_id ----------
-  console.log("\n>>> Turn 2: send tool results back via previous_response_id\n");
+  console.log(
+    "\n>>> Turn 2: send tool results back via previous_response_id\n",
+  );
 
   // 对比写法 A：input 里**只有** toolOutputs，没有 user prompt、没有 turn1.output
   // 服务端会按 previous_response_id 自动拼上完整历史（含 reasoning items）
