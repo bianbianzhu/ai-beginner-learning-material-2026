@@ -26,13 +26,15 @@ import OpenAI from "openai";
 // ==================== Service（AI 调用封装）====================
 const client = new OpenAI();
 
-async function summarize(text: string): Promise<{ summary: string; usage: OpenAI.Responses.Response["usage"] }> {
+async function summarize(
+  text: string,
+): Promise<{ summary: string; usage: OpenAI.Responses.Response["usage"] }> {
   const response = await client.responses.create({
     model: "gpt-5.4-nano",
     instructions:
       "You are a concise summarizer. Output EXACTLY 3 bullet points (one line each), no preamble.",
     input: text,
-    temperature: 0.3, // 低温度 = 产品级稳定
+    temperature: 0.3, // 低温度 = 产品级稳定 （鉴于5.4 by default 没有开启reasoning）
   });
   return { summary: response.output_text, usage: response.usage };
 }
@@ -56,10 +58,14 @@ app.post("/api/summarize", async (req, res) => {
     });
   }
   if (text.length < 20) {
-    return res.status(400).json({ ok: false, error: "text must be at least 20 characters" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "text must be at least 20 characters" });
   }
   if (text.length > 20_000) {
-    return res.status(400).json({ ok: false, error: "text must be at most 20000 characters" });
+    return res
+      .status(400)
+      .json({ ok: false, error: "text must be at most 20000 characters" });
   }
 
   const { summary, usage } = await summarize(text);
@@ -68,10 +74,19 @@ app.post("/api/summarize", async (req, res) => {
 });
 
 // 统一错误处理 —— Express v5 会自动把 async 抛的异常传进来
-app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[server error]", err);
-  res.status(500).json({ ok: false, error: err.message || "internal server error" });
-});
+app.use(
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
+    console.error("[server error]", err);
+    res
+      .status(500)
+      .json({ ok: false, error: err.message || "internal server error" });
+  },
+);
 
 const PORT = Number(process.env.PORT ?? 3000);
 app.listen(PORT, () => {
