@@ -43,7 +43,7 @@ app.use(
   cors({
     origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
     credentials: true,
-  })
+  }),
 );
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
@@ -99,7 +99,9 @@ app.post("/api/chat/stream", async (req, res) => {
     return;
   }
   if (message.length > 4000) {
-    res.status(400).json({ ok: false, error: "message too long (max 4000 chars)" });
+    res
+      .status(400)
+      .json({ ok: false, error: "message too long (max 4000 chars)" });
     return;
   }
 
@@ -180,13 +182,16 @@ async function runStreamingAgentLoop(opts: {
         tools,
         stream: true,
       },
-      { signal: getAbortSignal() }
+      { signal: getAbortSignal() },
     );
 
     // 本轮累积
     let text = "";
     let hadToolCall = false;
-    const pending = new Map<string, { name: string; args: string; call_id: string }>();
+    const pending = new Map<
+      string,
+      { name: string; args: string; call_id: string }
+    >();
 
     for await (const ev of stream) {
       switch (ev.type) {
@@ -222,7 +227,7 @@ async function runStreamingAgentLoop(opts: {
           break;
         }
 
-        // --- Item 结束：function_call 完成，可以本地执行了 --
+        // --- Item 结束：function_call 完成，可以本地执行了 （文本不需要考虑）--
         case "response.output_item.done": {
           if (ev.item.type === "function_call") {
             const parsed = safeParseJSON(ev.item.arguments ?? "{}");
@@ -283,14 +288,21 @@ function safeParseJSON(s: string): Record<string, unknown> {
 // 全局错误兜底
 // ============================================================
 app.use(
-  (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  (
+    err: Error,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction,
+  ) => {
     console.error("[server error]", err);
     if (!res.headersSent) {
-      res.status(500).json({ ok: false, error: err.message || "internal error" });
+      res
+        .status(500)
+        .json({ ok: false, error: err.message || "internal error" });
     } else {
       res.end();
     }
-  }
+  },
 );
 
 // ============================================================

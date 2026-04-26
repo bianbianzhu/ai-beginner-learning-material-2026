@@ -108,6 +108,7 @@ export function useStreamingChat() {
           for (const frame of frames) {
             const parsed = parseFrame(frame);
             if (!parsed) continue;
+            logSSEFrame(frame, parsed);
             dispatch(assistantId, parsed.event, parsed.data, setMessages);
           }
         }
@@ -149,6 +150,32 @@ export function useStreamingChat() {
 // ─────────────────────────────────────────────────────────
 // 帮助函数
 // ─────────────────────────────────────────────────────────
+
+// Toggle this to silence console noise in production
+const DEBUG_STREAM = true;
+
+const EVENT_COLORS: Record<string, string> = {
+  delta: "#3b82f6",            // blue
+  tool_start: "#a855f7",       // purple
+  tool_args_delta: "#a855f7",  // purple
+  tool_result: "#10b981",      // green
+  done: "#6b7280",             // gray
+  error: "#ef4444",            // red
+};
+
+function logSSEFrame(rawFrame: string, parsed: { event: string; data: unknown }) {
+  if (!DEBUG_STREAM) return;
+  const color = EVENT_COLORS[parsed.event] ?? "#6b7280";
+  console.groupCollapsed(
+    `%c[SSE] %c${parsed.event}`,
+    "color:#9ca3af",
+    `color:${color};font-weight:bold`,
+    parsed.data,
+  );
+  console.log("%craw:", "color:#9ca3af", rawFrame);
+  console.log("%cparsed:", "color:#9ca3af", parsed);
+  console.groupEnd();
+}
 
 function parseFrame(raw: string): { event: string; data: unknown } | null {
   const frame = raw.trim();
