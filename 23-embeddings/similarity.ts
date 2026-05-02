@@ -48,7 +48,7 @@ scored.sort((a, b) => b.score - a.score);
 console.log(`🔎 Query: "${query}"\n`);
 console.log("按相似度从高到低：\n");
 for (const { text, score } of scored) {
-  const bar = "█".repeat(Math.round(score * 40));
+  const bar = score > 0 ? "█".repeat(Math.round(score * 40)) : " ".repeat(40);
   console.log(`  ${score.toFixed(3)}  ${bar}`);
   console.log(`          ${text}\n`);
 }
