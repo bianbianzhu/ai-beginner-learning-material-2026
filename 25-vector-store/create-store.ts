@@ -44,7 +44,10 @@ const fileIds = await Promise.all(
   })
 );
 
-// 2. 建 vector store（file_ids 直接带进去，OpenAI 内部会去切/embed/索引）
+// 2. 建 vector store，并用 file_ids 直接触发文件 ingestion
+//    注意：这里不是在等“空 vector store 创建”，而是在等这些文件的
+//    切块、embedding、索引完成。因为 file_ids 和 create 放在同一个调用里，
+//    返回的 vector store 可能是 in_progress。
 console.log("\n🗂  创建 vector store ...");
 const vs = await client.vectorStores.create({
   name: "ai-in-2026-purrcloud",
@@ -54,7 +57,7 @@ const vs = await client.vectorStores.create({
 });
 console.log(`   ✓ created: ${vs.id}`);
 
-// 3. 轮询等 chunking + embedding 完成
+// 3. 轮询等文件 ingestion 完成（chunking + embedding + indexing）
 console.log("\n⏳ 等待 OpenAI 完成切块 & 索引 ...");
 let current = vs;
 while (current.status === "in_progress") {
