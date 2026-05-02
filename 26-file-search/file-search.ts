@@ -68,7 +68,9 @@ for (const item of resp.output) {
           console.log("\n📎 Citations:");
           for (const a of part.annotations) {
             if (a.type === "file_citation") {
-              console.log(`   - [${a.index}] ${a.filename}  (file_id=${a.file_id})`);
+              console.log(
+                `   - [${a.index}] ${a.filename}  (file_id=${a.file_id})`,
+              );
             }
           }
         }

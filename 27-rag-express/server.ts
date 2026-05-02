@@ -61,10 +61,12 @@ app.post("/api/rag", async (req, res) => {
           max_num_results: 3,
         },
       ],
+      include: ["file_search_call.results"],
     });
 
     // 从 output 里拎出 citations
-    const citations: { filename: string; file_id: string; index: number }[] = [];
+    const citations: { filename: string; file_id: string; index: number }[] =
+      [];
     for (const item of resp.output) {
       if (item.type !== "message") continue;
       for (const part of item.content) {
@@ -101,7 +103,9 @@ app.post("/api/rag", async (req, res) => {
 const PORT = Number(process.env.PORT ?? 3000);
 app.listen(PORT, () => {
   console.log(`🚀 RAG API running at http://localhost:${PORT}`);
-  console.log(`   POST http://localhost:${PORT}/api/rag   body: { "question": "..." }`);
+  console.log(
+    `   POST http://localhost:${PORT}/api/rag   body: { "question": "..." }`,
+  );
   console.log(`   GET  http://localhost:${PORT}/healthz`);
   console.log(`   vector_store_id = ${vsId}`);
 });
