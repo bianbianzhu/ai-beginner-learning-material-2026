@@ -2,7 +2,7 @@
 
 ## 🎯 本课学完后你会
 - 知道 Prompt Caching 是**自动启用、零成本、不需要任何代码改动**
-- 学会读 `usage.prompt_tokens_details.cached_tokens` 来证明缓存命中
+- 学会读 `usage.input_tokens_details.cached_tokens` 来证明缓存命中
 - 掌握「静态前缀放前面，动态内容放后面」的关键原则
 - 知道什么时候用 `prompt_cache_key` 影响路由
 
@@ -50,11 +50,11 @@ OpenAI 的 [Prompt Caching 指南](https://developers.openai.com/api/docs/guides
 ```ts
 const resp = await client.responses.create({...});
 const inputTokens   = resp.usage?.input_tokens ?? 0;
-const cachedTokens  = resp.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+const cachedTokens  = resp.usage?.input_tokens_details?.cached_tokens ?? 0;
 const hitRatio      = cachedTokens / inputTokens;
 ```
 
-`prompt_tokens_details.cached_tokens` 才是命中数；`input_tokens` 是总 prompt 长度。
+`input_tokens_details.cached_tokens` 才是命中数；`input_tokens` 是总 prompt 长度。
 
 ## 🔑 常见坑
 
@@ -62,6 +62,7 @@ const hitRatio      = cachedTokens / inputTokens;
 - **把 prompt 拆得太细碎**：每次都构造略微不同的 system prompt，命中不到。
 - **凭单次跑分下结论**：缓存默认 5–10 分钟过期，连续跑两次能看到效果，间隔半小时可能就不行了。
 - **以为传了 key 就一定命中**：`prompt_cache_key` 只是「影响路由」，不是「强制命中」；前缀本身不一致还是不会命中。
+- **低流量场景看不到命中**：缓存命中是「尽力而为」——两次请求可能路由到不同机器。在低流量演示（比如本课的脚本）里，我们给 demo 脚本加了 `prompt_cache_key` 做路由辅助，让同一个 key 的请求尽量落在同一台机器上，确保课程演示可重现。生产环境高频流量下无需此手段，缓存自然稳定命中。
 
 ## 🧠 适用场景
 

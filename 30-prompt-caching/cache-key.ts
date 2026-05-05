@@ -18,7 +18,7 @@ async function callWithKey(key: string, question: string) {
   });
 
   const inputTokens = resp.usage?.input_tokens ?? 0;
-  const cachedTokens = resp.usage?.prompt_tokens_details?.cached_tokens ?? 0;
+  const cachedTokens = resp.usage?.input_tokens_details?.cached_tokens ?? 0;
   console.log(`  key=${key.padEnd(15)}  cached=${cachedTokens}/${inputTokens}`);
 }
 
