@@ -18,15 +18,19 @@ export default defineConfig({
     ? [
         {
           command: "pnpm l32:server",
-          port: 3000,
+          url: "http://localhost:3000/healthz",
           reuseExistingServer: true,
-          timeout: 30_000,
+          timeout: 60_000,
+          stdout: "pipe",
+          stderr: "pipe",
         },
         {
           command: "pnpm l32:web",
-          port: 5173,
+          url: "http://localhost:5173",
           reuseExistingServer: true,
-          timeout: 30_000,
+          timeout: 60_000,
+          stdout: "pipe",
+          stderr: "pipe",
         },
       ]
     : undefined,
