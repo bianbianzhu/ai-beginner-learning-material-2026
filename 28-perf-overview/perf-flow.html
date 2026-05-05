@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lesson 28 · 性能优化总览</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 40px;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, "PingFang SC", sans-serif;
+      line-height: 1.6;
+    }
+    h1 { color: #f1f5f9; font-size: 28px; margin: 0 0 8px; }
+    .subtitle { color: #94a3b8; font-size: 14px; margin: 0 0 32px; }
+
+    .timeline {
+      display: flex;
+      gap: 4px;
+      height: 56px;
+      margin: 24px 0 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .step {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      color: #f8fafc;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+      padding: 0 8px;
+    }
+    .step-client    { flex: 1;  background: #475569; }
+    .step-server    { flex: 1;  background: #64748b; }
+    .step-embed     { flex: 2;  background: #0891b2; }
+    .step-search    { flex: 2;  background: #06b6d4; }
+    .step-prompt    { flex: 1;  background: #818cf8; }
+    .step-llm       { flex: 8;  background: #f59e0b; }
+    .step-stream    { flex: 4;  background: #34d399; }
+    .step-render    { flex: 1;  background: #475569; }
+
+    .legend {
+      display: flex;
+      gap: 4px;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    .legend > div { padding: 0 8px; }
+    .legend-client    { flex: 1; }
+    .legend-server    { flex: 1; }
+    .legend-embed     { flex: 2; }
+    .legend-search    { flex: 2; }
+    .legend-prompt    { flex: 1; }
+    .legend-llm       { flex: 8; }
+    .legend-stream    { flex: 4; }
+    .legend-render    { flex: 1; }
+
+    h2 { color: #f1f5f9; font-size: 20px; margin: 32px 0 16px; }
+    .principles {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .principle {
+      background: #1e293b;
+      border-left: 4px solid #f59e0b;
+      padding: 12px 16px;
+      border-radius: 6px;
+    }
+    .principle-num {
+      display: inline-block;
+      background: #f59e0b;
+      color: #0f172a;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-size: 13px;
+      margin-right: 8px;
+    }
+    .principle-title {
+      font-weight: 600;
+      font-size: 15px;
+      color: #f8fafc;
+      display: inline;
+    }
+    .principle-desc {
+      font-size: 13px;
+      color: #94a3b8;
+      margin: 6px 0 0;
+    }
+    .principle-link {
+      font-size: 12px;
+      color: #34d399;
+      margin-top: 6px;
+      display: block;
+    }
+
+    .takeaway {
+      margin-top: 40px;
+      padding: 20px 24px;
+      background: linear-gradient(135deg, #1e3a8a 0%, #1e293b 100%);
+      border-radius: 8px;
+      border: 1px solid #2563eb;
+    }
+    .takeaway h3 { color: #93c5fd; margin: 0 0 12px; font-size: 16px; }
+    .takeaway p { margin: 6px 0; color: #cbd5e1; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Lesson 28 · 性能优化总览</h1>
+  <p class="subtitle">「AI 慢，大多不是算力问题，而是系统设计问题。」</p>
+
+  <h2>一次完整的 AI 请求里时间花在哪</h2>
+  <div class="timeline" data-testid="timeline">
+    <div class="step step-client">客户端</div>
+    <div class="step step-server">后端校验</div>
+    <div class="step step-embed">RAG embed</div>
+    <div class="step step-search">向量搜索</div>
+    <div class="step step-prompt">prompt</div>
+    <div class="step step-llm">LLM 生成</div>
+    <div class="step step-stream">SSE stream</div>
+    <div class="step step-render">render</div>
+  </div>
+  <div class="legend">
+    <div class="legend-client">↑客户端</div>
+    <div class="legend-server">↑后端校验</div>
+    <div class="legend-embed">↑RAG embed</div>
+    <div class="legend-search">↑向量搜索</div>
+    <div class="legend-prompt">↑prompt</div>
+    <div class="legend-llm">↑LLM 生成 (主要瓶颈)</div>
+    <div class="legend-stream">↑SSE stream</div>
+    <div class="legend-render">↑render</div>
+  </div>
+
+  <h2>OpenAI 官方的 7 个 Latency 原则</h2>
+  <div class="principles">
+    <div class="principle" data-principle="1">
+      <span class="principle-num">1</span>
+      <span class="principle-title">Process tokens faster</span>
+      <p class="principle-desc">用更小的模型 / 蒸馏 / 推理优化（如 Predicted Outputs）。本课暂不做 demo。</p>
+    </div>
+    <div class="principle" data-principle="2">
+      <span class="principle-num">2</span>
+      <span class="principle-title">Generate fewer tokens</span>
+      <p class="principle-desc">输出越短越快。让模型「简洁回答」、缩短 JSON key。</p>
+    </div>
+    <div class="principle" data-principle="3">
+      <span class="principle-num">3</span>
+      <span class="principle-title">Use fewer input tokens</span>
+      <p class="principle-desc">主要靠 Prompt Caching（静态前缀放前面）。</p>
+      <span class="principle-link">→ Lesson 30</span>
+    </div>
+    <div class="principle" data-principle="4">
+      <span class="principle-num">4</span>
+      <span class="principle-title">Make fewer requests</span>
+      <p class="principle-desc">能合并的多步合成一个 prompt，省掉多次 round-trip。</p>
+      <span class="principle-link">→ Lesson 31</span>
+    </div>
+    <div class="principle" data-principle="5">
+      <span class="principle-num">5</span>
+      <span class="principle-title">Parallelize</span>
+      <p class="principle-desc">独立步骤用 Promise.all 同时发，总耗时 = 最慢那个。</p>
+      <span class="principle-link">→ Lesson 31</span>
+    </div>
+    <div class="principle" data-principle="6">
+      <span class="principle-num">6</span>
+      <span class="principle-title">Make your users wait less</span>
+      <p class="principle-desc">Streaming 把感知延迟从 5s 缩到 0.6s。</p>
+      <span class="principle-link">→ Lesson 29 + 32</span>
+    </div>
+    <div class="principle" data-principle="7">
+      <span class="principle-num">7</span>
+      <span class="principle-title">Don't default to an LLM</span>
+      <p class="principle-desc">能写死的写死、能预算的预算、能 hash 表搞定的别叫 LLM。</p>
+    </div>
+  </div>
+
+  <div class="takeaway" data-testid="takeaway">
+    <h3>📌 三件你要记住的事</h3>
+    <p>1. AI 性能问题，本质是系统问题。</p>
+    <p>2. 优化顺序：减少计算 → 改善体验 → 控制成本。</p>
+    <p>3. 好的 AI 产品，让用户「等得住」。没有指标的优化，基本都是浪费时间。</p>
+  </div>
+</body>
+</html>
