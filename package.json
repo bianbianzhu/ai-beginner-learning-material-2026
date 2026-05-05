@@ -44,6 +44,9 @@
     "l27": "tsx 27-rag-express/server.ts",
     "l29:baseline": "tsx 29-streaming-ttft/baseline.ts",
     "l29": "tsx 29-streaming-ttft/streaming.ts",
+    "l30": "tsx 30-prompt-caching/cache-hit.ts",
+    "l30:key": "tsx 30-prompt-caching/cache-key.ts",
+    "l30:order": "tsx 30-prompt-caching/prefix-order.ts",
     "test": "playwright test --grep-invert @network",
     "test:network": "RUN_NETWORK_TESTS=1 playwright test",
     "typecheck": "tsc --noEmit"
