@@ -1,7 +1,7 @@
 import type { Stats } from "../types.ts";
 
 export function StatsBar({ stats }: { stats: Stats }) {
-  if (!stats.total_ms && stats.ttft_ms === undefined) {
+  if (stats.total_ms === undefined && stats.ttft_ms === undefined) {
     return <div className="stats-bar">TTFT: —    Total: —    Tokens: —</div>;
   }
   const ttft = stats.ttft_ms === undefined ? "—" : `${stats.ttft_ms} ms`;

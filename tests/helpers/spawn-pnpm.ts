@@ -1,4 +1,8 @@
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve as resolvePath } from "node:path";
+
+const REPO_ROOT = resolvePath(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export interface PnpmResult {
   stdout: string;
@@ -14,6 +18,7 @@ export function runPnpm(
 ): Promise<PnpmResult> {
   return new Promise((resolve, reject) => {
     const proc = spawn("pnpm", [script], {
+      cwd: REPO_ROOT,
       env: { ...process.env, ...opts.env },
     });
     let stdout = "";
