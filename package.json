@@ -47,6 +47,8 @@
     "l30": "tsx 30-prompt-caching/cache-hit.ts",
     "l30:key": "tsx 30-prompt-caching/cache-key.ts",
     "l30:order": "tsx 30-prompt-caching/prefix-order.ts",
+    "l31": "tsx 31-fewer-requests/combine.ts",
+    "l31:parallel": "tsx 31-fewer-requests/parallel.ts",
     "test": "playwright test --grep-invert @network",
     "test:network": "RUN_NETWORK_TESTS=1 playwright test",
     "typecheck": "tsc --noEmit"
