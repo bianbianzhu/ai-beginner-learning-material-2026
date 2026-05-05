@@ -1,19 +1,35 @@
 import { defineConfig } from "@playwright/test";
 
-// Single Chromium project. Lessons that hit OpenAI API are tagged @network
-// and gated by RUN_NETWORK_TESTS=1 (see root package.json scripts).
-// 32-web-demo defines its own webServer inline because no other spec needs one.
+const NETWORK = process.env.RUN_NETWORK_TESTS === "1";
+
 export default defineConfig({
   testDir: ".",
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  fullyParallel: false, // Lessons share the same OPENAI_API_KEY rate limit
+  fullyParallel: false,
   workers: 1,
   reporter: [["list"]],
   use: {
     actionTimeout: 10_000,
     trace: "retain-on-failure",
   },
+  // Only spin up the lesson 32 servers when running network tests
+  webServer: NETWORK
+    ? [
+        {
+          command: "pnpm l32:server",
+          port: 3000,
+          reuseExistingServer: true,
+          timeout: 30_000,
+        },
+        {
+          command: "pnpm l32:web",
+          port: 5173,
+          reuseExistingServer: true,
+          timeout: 30_000,
+        },
+      ]
+    : undefined,
   projects: [
     {
       name: "chromium",
