@@ -35,3 +35,8 @@ coverage/
 19-db-conversations/*.db-journal
 19-db-conversations/*.db-wal
 19-db-conversations/*.db-shm
+
+# Playwright
+playwright-report/
+test-results/
+tests/.auth/

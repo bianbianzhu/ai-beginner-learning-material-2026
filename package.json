@@ -42,6 +42,8 @@
     "l25:attrs": "tsx 25-vector-store/attributes-showcase.ts",
     "l26": "tsx 26-file-search/file-search.ts",
     "l27": "tsx 27-rag-express/server.ts",
+    "test": "playwright test --grep-invert @network",
+    "test:network": "RUN_NETWORK_TESTS=1 playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -56,6 +58,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.19",
