@@ -50,6 +50,7 @@
     "l31": "tsx 31-fewer-requests/combine.ts",
     "l31:parallel": "tsx 31-fewer-requests/parallel.ts",
     "l32:server": "tsx 32-perf-web-demo/server/server.ts",
+    "l32:web": "pnpm -C 32-perf-web-demo/web dev",
     "test": "playwright test --grep-invert @network",
     "test:network": "RUN_NETWORK_TESTS=1 playwright test",
     "typecheck": "tsc --noEmit"
